@@ -3,6 +3,8 @@ name = "hot-loop"
 version = "0.0.0"
 edition = "2024"
 
-
+license = "MIT"
+description = "empty"
+repository = "https://github.com/Qu1ntev/hot-loop"
 
 [dependencies]
