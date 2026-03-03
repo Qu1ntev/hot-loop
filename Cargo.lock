@@ -594,7 +594,9 @@ name = "hot-loop"
 version = "0.0.2"
 dependencies = [
  "candle-core",
+ "candle-nn",
  "candle-transformers",
+ "thiserror 2.0.18",
  "tokenizers",
 ]
 
