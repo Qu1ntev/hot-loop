@@ -3,30 +3,27 @@ use candle_transformers::generation::LogitsProcessor;
 use crate::{Error, Settings, ModelWeights, KvCache};
 use crate::utils::token_output_stream::TokenOutputStream;
 
-pub struct Generation<'a, M: ModelWeights> {
-    pub(crate) model: &'a M,
+pub struct Generation<'a, 'b, M: ModelWeights> {
+    pub(crate) model: &'b M,
     pub(crate) index: usize,
     pub(crate) next_token: u32,
     pub(crate) tokens: Vec<u32>,
     pub(crate) all_tokens: Vec<u32>,
     pub(crate) parameters: Settings,
-    pub(crate) device: &'a Device,
+    pub(crate) device: &'b Device,
     pub(crate) eos_token: u32,
     pub(crate) logits_processor: LogitsProcessor,
-    pub(crate) tos: TokenOutputStream<'a>,
+    pub(crate) tos: &'a mut TokenOutputStream<'b>,
     pub(crate) kv_cache: &'a mut Vec<KvCache>
 }
 
-impl<'a, M: ModelWeights> Generation<'a, M> {
+impl<'a, 'b, M: ModelWeights> Generation<'a, 'b, M> {
     pub fn next_chunk(&mut self) -> Result<Option<String>, Error> {
         loop {
-            if self.parameters.sample_len <= self.index {
+            if self.parameters.sample_len <= self.index || self.next_token == self.eos_token {
+                self.tos.clear(); // FIX!!! safe clear
                 return Ok(None);
             }
-
-            if self.next_token == self.eos_token {
-                return Ok(None);
-            };
 
             let logits = if self.index == 0 {
                 let input = Tensor::new(self.tokens.clone(), &self.device)?.unsqueeze(0)?;

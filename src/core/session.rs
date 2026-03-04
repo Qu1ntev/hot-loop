@@ -1,4 +1,3 @@
-use candle_core::Device;
 use candle_transformers::generation::{LogitsProcessor, Sampling};
 use crate::{Error, Generation, Settings, ModelWeights, KvCache};
 use crate::utils::token_output_stream::TokenOutputStream;
@@ -6,24 +5,25 @@ use crate::utils::token_output_stream::TokenOutputStream;
 pub struct Session<'a, M: ModelWeights> {
     model: &'a M, // read only
     settings: Settings,
-    kv_cache: Vec<KvCache>
+    kv_cache: Vec<KvCache>,
+    tos: TokenOutputStream<'a>
 }
 
 impl<'a, M: ModelWeights> Session<'a, M> {
     pub fn new(model: &'a M) -> Self {
         let settings = Settings::default();
         let kv_cache = model.create_kv_cache();
+        let tos = TokenOutputStream::new(model.tokenizer());
         
         Self {
             model,
             settings,
-            kv_cache
+            kv_cache,
+            tos
         }
     }
 
-    pub fn generate(&mut self, prompt: &str) -> Result<Generation<'_, M>, Error> {
-        let tos = TokenOutputStream::new(self.model.tokenizer());
-
+    pub fn generate(&mut self, prompt: &str) -> Result<Generation<'_, 'a, M>, Error> {
         // self.model.clear_kv_cache(); // FIX!!! history
 
         let prompt_str = format!("<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"); // FIX!!! history
@@ -60,10 +60,10 @@ impl<'a, M: ModelWeights> Session<'a, M> {
             tokens,
             all_tokens: Vec::new(),
             parameters: self.settings,
-            device: &Device::Cpu, // &self.device, // FIX!!! device hard-code
+            device: self.model.current_device(),
             eos_token,
             logits_processor,
-            tos,
+            tos: &mut self.tos,
             kv_cache: &mut self.kv_cache
         })
     }

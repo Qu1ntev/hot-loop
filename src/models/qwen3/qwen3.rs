@@ -172,4 +172,8 @@ impl ModelWeights for Qwen3 {
     fn tokenizer(&self) -> &Tokenizer {
         &self.tokenizer
     }
+
+    fn current_device(&self) -> &Device {
+        &self.device
+    }
 }

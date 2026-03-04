@@ -1,4 +1,4 @@
-use candle_core::{Error, Tensor};
+use candle_core::{Device, Error, Tensor};
 use candle_nn::kv_cache::ConcatKvCache;
 use tokenizers::Tokenizer;
 
@@ -10,6 +10,10 @@ pub trait ModelWeights {
     fn create_kv_cache(&self) -> Vec<KvCache>;
 
     fn tokenizer(&self) -> &Tokenizer;
+
+    fn current_device(&self) -> &Device;
 }
 
 pub trait Model: ModelWeights {}
+
+impl<T: ModelWeights> Model for T {}
