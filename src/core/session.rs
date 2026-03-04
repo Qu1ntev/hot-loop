@@ -81,12 +81,12 @@ impl<'a, M: ModelWeights> Session<'a, M> {
     }
 
     pub fn with_system_prompt(mut self, system_prompt: &str) -> Result<Self, Error> {
-        self.set_system_prompt(system_prompt)?;
+        self.set_system_prompt_and_clear_history(system_prompt)?;
         Ok(self)
     }
 
-    pub fn set_system_prompt(&mut self, system_prompt: &str) -> Result<(), Error> {
-        self.clear_history();
+    pub fn set_system_prompt_and_clear_history(&mut self, system_prompt: &str) -> Result<(), Error> {
+        self.reset_all_cache();
 
         let sys_prompt_str = format!("<|im_start|>system\n{system_prompt}<|im_end|>\n");
         let tokens = self.model.tokenizer().encode(sys_prompt_str, true)?;
@@ -95,32 +95,32 @@ impl<'a, M: ModelWeights> Session<'a, M> {
         let input = Tensor::new(token_ids, self.model.current_device())?.unsqueeze(0)?;
         let _ = self.model.forward(&input, 0, &mut self.kv_cache)?;
 
-        self.set_rollback();
+        self.set_cache_rollback();
 
         Ok(())
     }
 
     pub fn clear_history(&mut self) {
-        self.rollback();
+        self.cache_rollback();
     }
 
     pub fn clear_system_prompt_and_history(&mut self) {
-        self.reset_all();
+        self.reset_all_cache();
     }
 
-    fn set_rollback(&mut self) {
+    fn set_cache_rollback(&mut self) {
         for cache in &mut self.kv_cache {
             cache.set_rollback();
         }
     }
 
-    fn rollback(&mut self) {
+    fn cache_rollback(&mut self) {
         for cache in &mut self.kv_cache {
             cache.rollback();
         }
     }
 
-    fn reset_all(&mut self) {
+    fn reset_all_cache(&mut self) {
         for cache in &mut self.kv_cache {
             cache.reset_all();
         }
