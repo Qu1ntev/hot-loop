@@ -5,12 +5,14 @@ pub mod models;
 
 pub(crate) mod core;
 pub use core::{
-    model_weights::ModelWeights,
+    model_weights::Model,
     error::Error,
     session::Session,
     settings::Settings,
     generation::Generation,
 };
-// pub(crate) use core::{
-//
-// };
+pub(crate) use core::{
+    model_weights::{
+        ModelWeights, KvCache
+    },
+};

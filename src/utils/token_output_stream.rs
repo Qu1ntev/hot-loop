@@ -4,15 +4,15 @@ use tokenizers::Tokenizer;
 const REPL: char = '\u{FFFD}';
 
 #[derive(Clone)]
-pub(crate) struct TokenOutputStream {
-    tokenizer: Tokenizer,
+pub(crate) struct TokenOutputStream<'a> {
+    tokenizer: &'a Tokenizer,
     tokens: Vec<u32>,
     prev_index: usize,
     current_index: usize,
 }
 
-impl TokenOutputStream {
-    pub fn new(tokenizer: Tokenizer) -> Self {
+impl<'a> TokenOutputStream<'a> {
+    pub fn new(tokenizer: &'a Tokenizer) -> Self {
         Self {
             tokenizer,
             tokens: Vec::new(),
@@ -37,10 +37,6 @@ impl TokenOutputStream {
         } else {
             Ok(None)
         }
-    }
-
-    pub fn tokenizer(&self) -> &Tokenizer {
-        &self.tokenizer
     }
 
     pub fn clear(&mut self) {

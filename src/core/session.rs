@@ -1,15 +1,12 @@
 use candle_core::Device;
-use candle_nn::kv_cache::{ConcatKvCache};
 use candle_transformers::generation::{LogitsProcessor, Sampling};
-// use tokenizers::Tokenizer;
-use crate::{Error, Generation, Settings, ModelWeights};
-// use crate::models::qwen3::qwen3_weights::Qwen3Weights;
+use crate::{Error, Generation, Settings, ModelWeights, KvCache};
 use crate::utils::token_output_stream::TokenOutputStream;
 
 pub struct Session<'a, M: ModelWeights> {
-    model: &'a M,
+    model: &'a M, // read only
     settings: Settings,
-    kv_cache: Vec<ConcatKvCache> // FIX!!! cache type hard-code
+    kv_cache: Vec<KvCache>
 }
 
 impl<'a, M: ModelWeights> Session<'a, M> {
@@ -25,14 +22,13 @@ impl<'a, M: ModelWeights> Session<'a, M> {
     }
 
     pub fn generate(&mut self, prompt: &str) -> Result<Generation<'_, M>, Error> {
-        let tos = TokenOutputStream::new(self.model.tokenizer().clone());
+        let tos = TokenOutputStream::new(self.model.tokenizer());
 
         // self.model.clear_kv_cache(); // FIX!!! history
 
         let prompt_str = format!("<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"); // FIX!!! history
 
-        let tokens = tos // FIX!!! special tokens
-            .tokenizer()
+        let tokens = self.model.tokenizer() // FIX!!! special tokens
             .encode(prompt_str, true)?;
 
         let tokens = tokens.get_ids().to_vec();
@@ -52,7 +48,7 @@ impl<'a, M: ModelWeights> Session<'a, M> {
             LogitsProcessor::from_sampling(299792458, sampling) // FIX!!! seed hard-code
         };
 
-        let eos_token = *tos.tokenizer() // FIX!!! const or parse from model
+        let eos_token = *self.model.tokenizer() // FIX!!! const or parse from model
             .get_vocab(true)
             .get("<|im_end|>")
             .ok_or(Error::None)?;
@@ -70,5 +66,11 @@ impl<'a, M: ModelWeights> Session<'a, M> {
             tos,
             kv_cache: &mut self.kv_cache
         })
+    }
+    
+    pub fn clear_history(&mut self) {
+        for cache in &mut self.kv_cache {
+            cache.reset();
+        }
     }
 }

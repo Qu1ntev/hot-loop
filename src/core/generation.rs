@@ -1,7 +1,6 @@
 use candle_core::{Device, Tensor};
-use candle_nn::kv_cache::{ConcatKvCache};
 use candle_transformers::generation::LogitsProcessor;
-use crate::{Error, Settings, ModelWeights};
+use crate::{Error, Settings, ModelWeights, KvCache};
 use crate::utils::token_output_stream::TokenOutputStream;
 
 pub struct Generation<'a, M: ModelWeights> {
@@ -14,8 +13,8 @@ pub struct Generation<'a, M: ModelWeights> {
     pub(crate) device: &'a Device,
     pub(crate) eos_token: u32,
     pub(crate) logits_processor: LogitsProcessor,
-    pub(crate) tos: TokenOutputStream,
-    pub(crate) kv_cache: &'a mut Vec<ConcatKvCache> // FIX!!! cache hard-code
+    pub(crate) tos: TokenOutputStream<'a>,
+    pub(crate) kv_cache: &'a mut Vec<KvCache>
 }
 
 impl<'a, M: ModelWeights> Generation<'a, M> {
