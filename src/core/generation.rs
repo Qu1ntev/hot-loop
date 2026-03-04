@@ -22,17 +22,29 @@ impl<'a, 'b, M: ModelWeights> Generation<'a, 'b, M> {
     pub fn next_chunk(&mut self) -> Result<Option<String>, Error> {
         loop {
             if self.parameters.sample_len <= self.index || self.next_token == self.eos_token {
-                self.tos.clear(); // FIX!!! safe clear
                 return Ok(None);
             }
 
+            let current_pos = self.kv_cache
+                .get(0)
+                .ok_or(Error::None)?
+                .current_seq_len();
+
             let logits = if self.index == 0 {
-                let input = Tensor::new(self.tokens.clone(), &self.device)?.unsqueeze(0)?;
-                self.model.forward(&input, 0, self.kv_cache)?
+                let input = Tensor::new(self.tokens.as_slice(), &self.device)?.unsqueeze(0)?;
+                self.model.forward(&input, current_pos, &mut self.kv_cache)?
             } else {
                 let input = Tensor::new(&[self.next_token], self.device)?.unsqueeze(0)?;
-                self.model.forward(&input, self.tokens.len() + self.index, self.kv_cache)?
+                self.model.forward(&input, current_pos, &mut self.kv_cache)?
             };
+
+            // let logits = if self.index == 0 {
+            //     let input = Tensor::new(self.tokens.as_slice(), &self.device)?.unsqueeze(0)?;
+            //     self.model.forward(&input, 0, &mut self.kv_cache)?
+            // } else {
+            //     let input = Tensor::new(&[self.next_token], self.device)?.unsqueeze(0)?;
+            //     self.model.forward(&input, self.tokens.len() + self.index, &mut self.kv_cache)?
+            // };
 
             let logits = logits.squeeze(0)?;
 
@@ -56,5 +68,11 @@ impl<'a, 'b, M: ModelWeights> Generation<'a, 'b, M> {
                 return Ok(Some(chunk))
             }
         }
+    }
+}
+
+impl<'a, 'b, M: ModelWeights> Drop for Generation<'a, 'b, M> {
+    fn drop(&mut self) {
+        self.tos.clear();
     }
 }

@@ -1,8 +1,10 @@
 use candle_transformers::generation::{LogitsProcessor, Sampling};
+use candle_core::Tensor;
 use crate::{Error, Generation, Settings, ModelWeights, KvCache};
 use crate::utils::token_output_stream::TokenOutputStream;
 
 #[non_exhaustive]
+#[derive(Clone)]
 pub struct Session<'a, M: ModelWeights> {
     model: &'a M, // read only
     settings: Settings,
@@ -68,10 +70,59 @@ impl<'a, M: ModelWeights> Session<'a, M> {
             kv_cache: &mut self.kv_cache
         })
     }
-    
+
+    pub fn with_settings(mut self, settings: Settings) -> Self {
+        self.settings = settings;
+        self
+    }
+
+    pub fn set_settings(&mut self, settings: Settings) {
+        self.settings = settings;
+    }
+
+    pub fn with_system_prompt(mut self, system_prompt: &str) -> Result<Self, Error> {
+        self.set_system_prompt(system_prompt)?;
+        Ok(self)
+    }
+
+    pub fn set_system_prompt(&mut self, system_prompt: &str) -> Result<(), Error> {
+        self.clear_history();
+
+        let sys_prompt_str = format!("<|im_start|>system\n{system_prompt}<|im_end|>\n");
+        let tokens = self.model.tokenizer().encode(sys_prompt_str, true)?;
+        let token_ids = tokens.get_ids();
+
+        let input = Tensor::new(token_ids, self.model.current_device())?.unsqueeze(0)?;
+        let _ = self.model.forward(&input, 0, &mut self.kv_cache)?;
+
+        self.set_rollback();
+
+        Ok(())
+    }
+
     pub fn clear_history(&mut self) {
+        self.rollback();
+    }
+
+    pub fn clear_system_prompt_and_history(&mut self) {
+        self.reset_all();
+    }
+
+    fn set_rollback(&mut self) {
         for cache in &mut self.kv_cache {
-            cache.reset();
+            cache.set_rollback();
+        }
+    }
+
+    fn rollback(&mut self) {
+        for cache in &mut self.kv_cache {
+            cache.rollback();
+        }
+    }
+
+    fn reset_all(&mut self) {
+        for cache in &mut self.kv_cache {
+            cache.reset_all();
         }
     }
 }

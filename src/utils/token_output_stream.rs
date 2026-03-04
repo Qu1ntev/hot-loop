@@ -4,7 +4,7 @@ use tokenizers::Tokenizer;
 const REPL: char = '\u{FFFD}';
 
 #[derive(Clone)]
-pub(crate) struct TokenOutputStream<'a> {
+pub struct TokenOutputStream<'a> {
     tokenizer: &'a Tokenizer,
     tokens: Vec<u32>,
     prev_index: usize,

@@ -10,6 +10,7 @@ pub use core::{
     session::Session,
     settings::Settings,
     generation::Generation,
+    // ses::chat
 };
 pub(crate) use core::{
     model_weights::{

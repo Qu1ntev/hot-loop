@@ -1,5 +1,6 @@
 use candle_core::{Device, Error, Tensor};
-use candle_nn::kv_cache::ConcatKvCache;
+// use candle_nn::kv_cache::ConcatKvCache;
+use crate::utils::kv_cache::ConcatKvCache;
 use tokenizers::Tokenizer;
 
 pub(crate) type KvCache = ConcatKvCache;
@@ -13,6 +14,8 @@ pub trait ModelWeights {
 
     fn current_device(&self) -> &Device;
 }
+
+// fn chat_template_refactor(&self, history: History) -> String
 
 pub trait Model: ModelWeights {}
 

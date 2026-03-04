@@ -149,7 +149,7 @@ impl ModelWeights for Qwen3 {
         } else {
             Some(self.causal_mask(b, l, offset, None)?)
         };
-
+        
         for (layer, cache) in self.layers.iter().zip(kv_cache.iter_mut()) {
             h = layer.forward(&h, causal_mask.as_ref(), offset, cache)?;
         }
