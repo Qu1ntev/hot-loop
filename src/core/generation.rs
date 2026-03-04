@@ -3,6 +3,7 @@ use candle_transformers::generation::LogitsProcessor;
 use crate::{Error, Settings, ModelWeights, KvCache};
 use crate::utils::token_output_stream::TokenOutputStream;
 
+#[non_exhaustive]
 pub struct Generation<'a, 'b, M: ModelWeights> {
     pub(crate) model: &'b M,
     pub(crate) index: usize,

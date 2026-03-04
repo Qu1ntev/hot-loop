@@ -2,6 +2,7 @@ use candle_transformers::generation::{LogitsProcessor, Sampling};
 use crate::{Error, Generation, Settings, ModelWeights, KvCache};
 use crate::utils::token_output_stream::TokenOutputStream;
 
+#[non_exhaustive]
 pub struct Session<'a, M: ModelWeights> {
     model: &'a M, // read only
     settings: Settings,
@@ -10,7 +11,7 @@ pub struct Session<'a, M: ModelWeights> {
 }
 
 impl<'a, M: ModelWeights> Session<'a, M> {
-    pub fn new(model: &'a M) -> Self {
+    pub(crate) fn new(model: &'a M) -> Self {
         let settings = Settings::default();
         let kv_cache = model.create_kv_cache();
         let tos = TokenOutputStream::new(model.tokenizer());
