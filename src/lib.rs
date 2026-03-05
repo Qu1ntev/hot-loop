@@ -7,13 +7,11 @@ pub(crate) mod core;
 pub use core::{
     model_weights::Model,
     error::Error,
-    session::Session,
-    settings::Settings,
-    generation::Generation,
-    // ses::chat
+    session,
+    settings,
 };
 pub(crate) use core::{
     model_weights::{
-        ModelWeights, KvCache
+        ModelWeights, KvCache, Role
     },
 };

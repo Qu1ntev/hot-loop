@@ -1,12 +1,13 @@
 use candle_transformers::models::with_tracing::QMatMul;
 use candle_transformers::{quantized_nn::RmsNorm};
 use candle_core::quantized::{gguf_file};
-use candle_core::{DType, Device, Result, Tensor};
+use candle_core::{DType, Device, Result as CandleResult, Tensor};
 use candle_nn::{Embedding, Module};
 use std::io::{Read, Seek};
 use std::sync::Arc;
-use crate::{ModelWeights, Session, KvCache, Error};
+use crate::{ModelWeights, session::Session, KvCache, Error, Role};
 use tokenizers::Tokenizer;
+use super::ChatTemplate;
 
 use super::{
     transformers::{
@@ -16,7 +17,7 @@ use super::{
     }
 };
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Qwen3 {
     embed_tokens: Embedding,
     layers: Vec<LayerWeights>,
@@ -24,7 +25,7 @@ pub struct Qwen3 {
     lm_head: QMatMul,
     device: Device,
     dtype: DType,
-    tokenizer: Tokenizer
+    chat_template: ChatTemplate
 }
 
 impl Qwen3 {
@@ -32,7 +33,7 @@ impl Qwen3 {
         model: &mut M,
         tokenizer: T,
         device: &Device,
-    ) -> core::result::Result<Self, Error>
+    ) -> Result<Self, Error>
     where
         M: Read + Seek,
         T: AsRef<[u8]>,
@@ -97,6 +98,8 @@ impl Qwen3 {
         };
         let lm_head = QMatMul::from_weights(lm_head_tensor.into())?;
 
+        let chat_template = ChatTemplate::new(tokenizer)?;
+
         Ok(Self {
             embed_tokens,
             layers,
@@ -104,7 +107,7 @@ impl Qwen3 {
             lm_head,
             device: device.clone(),
             dtype,
-            tokenizer
+            chat_template
         })
     }
 
@@ -114,7 +117,7 @@ impl Qwen3 {
         tgt: usize,
         offset: usize,
         sw: Option<usize>,
-    ) -> Result<Tensor> {
+    ) -> CandleResult<Tensor> {
         let minf = f32::NEG_INFINITY;
         let mask: Vec<_> = (0..tgt)
             .flat_map(|i| {
@@ -141,7 +144,7 @@ impl Qwen3 {
 }
 
 impl ModelWeights for Qwen3 {
-    fn forward(&self, input: &Tensor, offset: usize, kv_cache: &mut Vec<KvCache>) -> Result<Tensor> {
+    fn forward(&self, input: &Tensor, offset: usize, kv_cache: &mut Vec<KvCache>) -> CandleResult<Tensor> {
         let (b, l) = input.dims2()?;
         let mut h = self.embed_tokens.forward(input)?;
         let causal_mask = if l == 1 {
@@ -170,10 +173,22 @@ impl ModelWeights for Qwen3 {
     }
 
     fn tokenizer(&self) -> &Tokenizer {
-        &self.tokenizer
+        &self.chat_template.tokenizer()
     }
 
     fn current_device(&self) -> &Device {
         &self.device
+    }
+
+    fn fmt_prompt(&self, prompt: &str, role: Role) -> Result<Vec<u32>, Error> {
+        self.chat_template.fmt_prompt(prompt, role)
+    }
+
+    fn assistant_start_template(&self) -> Vec<u32> {
+        self.chat_template.assistant_start_template()
+    }
+    
+    fn eos_token(&self) -> u32 {
+        self.chat_template.eos_token()
     }
 }

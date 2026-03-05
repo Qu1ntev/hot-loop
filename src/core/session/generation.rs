@@ -1,6 +1,9 @@
 use candle_core::{Device, Tensor};
 use candle_transformers::generation::LogitsProcessor;
-use crate::{Error, Settings, ModelWeights, KvCache};
+use crate::{
+    Error, ModelWeights, KvCache,
+    settings::Settings,
+};
 use crate::utils::token_output_stream::TokenOutputStream;
 
 #[non_exhaustive]
@@ -37,14 +40,6 @@ impl<'a, 'b, M: ModelWeights> Generation<'a, 'b, M> {
                 let input = Tensor::new(&[self.next_token], self.device)?.unsqueeze(0)?;
                 self.model.forward(&input, current_pos, &mut self.kv_cache)?
             };
-
-            // let logits = if self.index == 0 {
-            //     let input = Tensor::new(self.tokens.as_slice(), &self.device)?.unsqueeze(0)?;
-            //     self.model.forward(&input, 0, &mut self.kv_cache)?
-            // } else {
-            //     let input = Tensor::new(&[self.next_token], self.device)?.unsqueeze(0)?;
-            //     self.model.forward(&input, self.tokens.len() + self.index, &mut self.kv_cache)?
-            // };
 
             let logits = logits.squeeze(0)?;
 
