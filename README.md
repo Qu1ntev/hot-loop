@@ -54,6 +54,38 @@ fn main() -> Result<(), Error> {
 
 ---
 
+# Boost Your Code 🚀🦀
+
+## Use `target-cpu=native` to boost generation speed!
+
+```
+your-project/
+├── .cargo/
+│   └── config.toml
+├── src/
+│   └── main.rs
+└── Cargo.toml
+```
+
+## .cargo/config.toml:
+
+```toml
+rustflags = ["-C", "target-cpu=native"]
+```
+
+## Cargo.toml:
+
+```toml
+[profile.release]
+lto = "fat"
+opt-level = 3
+strip = true
+codegen-units = 1
+panic = "abort"
+```
+
+---
+
 ## Typing
 
 ```rust
