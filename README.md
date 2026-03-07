@@ -23,6 +23,7 @@ use std::fs::{File, read};
 use std::io::{stdout, Write};
 
 use hot_loop::{
+    Model,
     models::Qwen3,
     Device,
     Error,
@@ -87,6 +88,22 @@ fn main() -> Result<(), Error> {
 
     Ok(())
 }
+```
+
+---
+
+## Session Settings
+
+```rust
+
+```
+
+---
+
+## Session System-prompt
+
+```rust
+
 ```
 
 ---
