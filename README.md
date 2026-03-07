@@ -95,7 +95,40 @@ fn main() -> Result<(), Error> {
 ## Session Settings
 
 ```rust
+use std::fs::{File, read};
 
+use hot_loop::{
+    Model,
+    models::Qwen3,
+    Device,
+    Error,
+    settings::{Settings, Seed},
+};
+
+fn main() -> Result<(), Error> {
+    let mut model_file = File::open("Qwen3.gguf").unwrap();
+    let tokenizer_bytes = read("tokenizer.json").unwrap();
+
+    let model = Qwen3::load(&mut model_file, &tokenizer_bytes, &Device::Cpu)?;
+
+    let settings = Settings::default()
+        .with_temperature(0.7)
+        .with_sample_len(512)
+        .with_seed(Seed::Custom(12345)) // or Seed::Default
+        .with_top_p(Some(0.5))
+        .with_top_k(Some(40))
+        .with_repeat_penalty(1.1)
+        .with_repeat_last_n(64);
+
+    let mut session = model.new_session()
+        .with_settings(settings); // set settings
+    
+    // OR
+    
+    session.set_settings(Settings::default()); // set settings
+
+    Ok(())
+}
 ```
 
 ---
@@ -103,7 +136,70 @@ fn main() -> Result<(), Error> {
 ## Session System-prompt
 
 ```rust
+use std::fs::{File, read};
 
+use hot_loop::{
+    Model,
+    models::Qwen3,
+    Device,
+    Error,
+};
+
+fn main() -> Result<(), Error> {
+    let mut model_file = File::open("Qwen3.gguf").unwrap();
+    let tokenizer_bytes = read("tokenizer.json").unwrap();
+
+    let model = Qwen3::load(&mut model_file, &tokenizer_bytes, &Device::Cpu)?;
+
+    let sys_prompt = "always answer in json!";
+
+    let mut session = model.new_session()
+        .with_system_prompt(sys_prompt)?; // set system prompt
+
+    // OR
+    session.set_system_prompt_and_clear_history(sys_prompt)?;
+    
+    
+    session.clear_system_prompt_and_history(); // clear system prompt
+
+    Ok(())
+}
+```
+
+---
+
+## Session History
+
+```rust
+use std::fs::{File, read};
+
+use hot_loop::{
+    Model,
+    models::Qwen3,
+    Device,
+    Error,
+};
+
+fn main() -> Result<(), Error> {
+    let mut model_file = File::open("Qwen3.gguf").unwrap();
+    let tokenizer_bytes = read("tokenizer.json").unwrap();
+
+    let model = Qwen3::load(&mut model_file, &tokenizer_bytes, &Device::Cpu)?;
+    let mut session = model.new_session();
+
+    let questions = ["Hello!", "what can you do?", "ok"];
+
+    for question in questions {
+        let mut generate = session.generate(question)?;
+        while let Some(_) = generate.next_chunk()? {
+            // model answers
+        }
+    }
+
+    session.clear_history(); // clear history
+
+    Ok(())
+}
 ```
 
 ---
