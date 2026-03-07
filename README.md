@@ -18,8 +18,6 @@
 
 ## Quick Start
 
----
-
 ```rust
 use std::fs::{File, read};
 use std::io::{stdout, Write};
@@ -52,3 +50,43 @@ fn main() -> Result<(), Error> {
     Ok(())
 }
 ```
+
+---
+
+## Typing
+
+```rust
+use std::fs::{File, read};
+
+use hot_loop::{
+    models::Qwen3,
+    session::{Session, Generation},
+    Model, // trait
+    Device,
+    Error
+};
+
+fn func1(_model: &impl Model) {}
+
+fn func2(_session: &mut Session<impl Model>) {}
+
+fn func3(_generation: &mut Generation<impl Model>) {}
+
+fn main() -> Result<(), Error> {
+    let mut model_file = File::open("Qwen3.gguf").unwrap();
+    let tokenizer_bytes = read("tokenizer.json").unwrap();
+
+    let model = Qwen3::load(&mut model_file, &tokenizer_bytes, &Device::Cpu)?;
+    func1(&model);
+
+    let mut session: Session<Qwen3> = model.new_session();
+    func2(&mut session);
+
+    let mut generation: Generation<Qwen3> = session.generate("Hello")?;
+    func3(&mut generation);
+
+    Ok(())
+}
+```
+
+---
