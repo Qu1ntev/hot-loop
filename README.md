@@ -16,7 +16,11 @@
 
 ---
 
+[![Crates.io](https://img.shields.io/crates/v/hot-loop.svg)](https://crates.io/crates/hot-loop)
+
 ## Quick Start
+
+### Install: ```cargo add hot-loop```
 
 ```rust
 use std::fs::{File, read};
@@ -56,7 +60,7 @@ fn main() -> Result<(), Error> {
 
 # Boost Your Code 🚀🦀
 
-## Use `target-cpu=native` to boost generation speed!
+## Use ```target-cpu=native``` to boost generation speed!
 
 ```
 your-project/
