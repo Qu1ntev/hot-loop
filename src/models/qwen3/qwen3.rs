@@ -5,7 +5,7 @@ use candle_core::{DType, Device, Result as CandleResult, Tensor};
 use candle_nn::{Embedding, Module};
 use std::io::{Read, Seek};
 use std::sync::Arc;
-use crate::{ModelWeights, session::Session, KvCache, Error, Role};
+use crate::{ModelWeights, KvCache, Error, Role};
 use tokenizers::Tokenizer;
 use super::ChatTemplate;
 
@@ -136,10 +136,6 @@ impl Qwen3 {
             })
             .collect();
         Tensor::from_slice(&mask, (b, 1, tgt, tgt + offset), &self.device)?.to_dtype(self.dtype)
-    }
-
-    pub fn new_session(&self) -> Session<'_, Qwen3> {
-        Session::new(self)
     }
 }
 

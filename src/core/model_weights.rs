@@ -1,6 +1,6 @@
 use candle_core::{Device, Result as CandleResult, Tensor};
 use crate::utils::kv_cache::ConcatKvCache;
-use crate::Error;
+use crate::{Error, session::Session};
 use tokenizers::Tokenizer;
 
 pub(crate) type KvCache = ConcatKvCache;
@@ -28,6 +28,13 @@ pub trait ModelWeights {
 
 // ADD extend_from_history
 
-pub trait Model: ModelWeights {}
+pub trait Model: ModelWeights {
+    fn new_session(&self) -> Session<'_, Self>
+    where
+        Self: Sized
+    {
+        Session::new(self)
+    }
+}
 
 impl<T: ModelWeights> Model for T {}
