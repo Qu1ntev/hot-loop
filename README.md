@@ -74,6 +74,7 @@ your-project/
 ## .cargo/config.toml:
 
 ```toml
+[build]
 rustflags = ["-C", "target-cpu=native"]
 ```
 
