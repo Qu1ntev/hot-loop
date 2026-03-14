@@ -75,7 +75,7 @@ impl ConcatKvCache {
     /// # Returns
     /// Tuple of `(full_k, full_v)` containing all cached keys and values,
     /// including the newly appended data.
-    pub fn append(&mut self, k: &Tensor, v: &Tensor) -> candle_core::Result<(Tensor, Tensor)> {
+    pub fn append(&mut self, k: &Tensor, v: &Tensor) -> Result<(Tensor, Tensor), Error> {
         // Ensure inputs are contiguous for optimal concatenation performance
         let k = k.contiguous()?;
         let v = v.contiguous()?;
