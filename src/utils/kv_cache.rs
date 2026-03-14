@@ -1,11 +1,11 @@
-use candle_core::Tensor;
+use candle_core::{Tensor, Error};
 
 #[derive(Debug, Clone)]
 pub struct ConcatKvCache {
     k: Option<Tensor>,
     v: Option<Tensor>,
     dim: usize,
-    
+
     k_roll: Option<Tensor>,
     v_roll: Option<Tensor>,
     roll_len: usize
@@ -35,20 +35,20 @@ impl ConcatKvCache {
             roll_len: 0
         }
     }
-    
+
     pub fn set_rollback(&mut self) {
         self.k_roll = self.k.clone();
         self.v_roll = self.v.clone();
 
         self.roll_len = self.current_seq_len();
     }
-    
+
     pub fn rollback(&mut self) {
         self.k = self.k_roll.clone();
         self.v = self.v_roll.clone();
     }
 
-    pub fn clear_rollback(&mut self) {
+    fn clear_rollback(&mut self) {
         self.k_roll = None;
         self.v_roll = None;
         self.roll_len = 0;
@@ -79,36 +79,25 @@ impl ConcatKvCache {
         // Ensure inputs are contiguous for optimal concatenation performance
         let k = k.contiguous()?;
         let v = v.contiguous()?;
-        // Update K cache using concatenation
+
         self.k = Some(match &self.k {
             None => k.clone(),
-            Some(k_cache) => {
-                // Concatenate along the sequence dimension
-                // GPU kernel for cat is highly optimized:
-                // - Fused allocation + copy
-                // - Coalesced memory access
-                // - Single kernel launch
-                Tensor::cat(&[k_cache, &k], self.dim)?
-            }
+            Some(k_cache) => Tensor::cat(&[k_cache, &k], self.dim)?
         });
 
-        // Update V cache using concatenation
         self.v = Some(match &self.v {
             None => v.clone(),
-            Some(v_cache) => Tensor::cat(&[v_cache, &v], self.dim)?,
+            Some(v_cache) => Tensor::cat(&[v_cache, &v], self.dim)?
         });
 
-        Ok((
-            self.k.as_ref().unwrap().clone(),
-            self.v.as_ref().unwrap().clone(),
-        ))
+        let k = self.k.as_ref().ok_or(Error::UnwrapNone)?.clone();
+        let v = self.v.as_ref().ok_or(Error::UnwrapNone)?.clone();
+
+        Ok((k, v))
     }
 
     /// Reset the cache (clear all stored keys and values)
-    ///
-    /// After calling this, `is_empty()` will return `true` and
-    /// `current_seq_len()` will return 0.
-    pub fn clear_kv(&mut self) {
+    fn clear_kv(&mut self) {
         self.k = None;
         self.v = None;
     }
