@@ -158,14 +158,8 @@ impl ModelWeights for Qwen3 {
         self.lm_head.forward(&last_hidden)?.squeeze(1)
     }
 
-    fn create_kv_cache(&self) -> Vec<KvCache> {
-        let mut kv_cache = Vec::with_capacity(self.layers.len());
-
-        for _ in 0..self.layers.len() {
-            kv_cache.push(KvCache::new(2));
-        }
-
-        kv_cache
+    fn layers_len(&self) -> usize {
+        self.layers.len()
     }
 
     fn tokenizer(&self) -> &Tokenizer {
