@@ -1,34 +1,17 @@
 use candle_transformers::{quantized_nn::RmsNorm, utils::repeat_kv};
-use candle_core::quantized::QTensor;
+use candle_transformers::models::with_tracing::QMatMul;
 use candle_core::D;
 use candle_core::{DType, Device, Result, Tensor};
 use candle_nn::{Module};
 use crate::{
     KvCache
 };
-// use candle_transformers::models;
 
 pub(crate) const MAX_SEQ_LEN: usize = 131072; // Gemma 3 supports 128K context window
 pub(crate) const DEFAULT_SLIDING_WINDOW_TYPE: usize = 6;
 pub(crate) const DEFAULT_ROPE_FREQUENCY: f32 = 1_000_000.;
 pub(crate) const DEFAULT_ROPE_FREQUENCY_SLIDING: f32 = 10_000.;
 pub(crate) const DEFAULT_ROPE_FREQUENCY_SCALE_FACTOR: f32 = 1.;
-
-#[derive(Debug, Clone)]
-pub(crate) struct QMatMul {
-    inner: candle_core::quantized::QMatMul,
-}
-
-impl QMatMul {
-    pub fn from_qtensor(qtensor: QTensor) -> Result<Self> {
-        let inner = candle_core::quantized::QMatMul::from_qtensor(qtensor)?;
-        Ok(Self { inner })
-    }
-
-    pub fn forward(&self, xs: &Tensor) -> Result<Tensor> {
-        self.inner.forward(xs)
-    }
-}
 
 #[derive(Debug, Clone)]
 pub(crate) struct Mlp {
@@ -186,20 +169,6 @@ impl LayerWeights {
         let (q, k) = self
             .rotary_embedding
             .apply_rotary_emb_qkv(&q, &k, index_pos)?;
-
-        // let (k, v) = match kv_cache {
-        //     None => (k, v),
-        //     Some((k_cache, v_cache)) => {
-        //         if index_pos == 0 {
-        //             (k, v)
-        //         } else {
-        //             let k = Tensor::cat(&[k_cache, &k], 2)?; // concat on seq dim
-        //             let v = Tensor::cat(&[v_cache, &v], 2)?;
-        //             (k, v)
-        //         }
-        //     }
-        // };
-        // self.kv_cache = Some((k.clone(), v.clone())); // update cache
 
         let (k, v) = kv_cache.append(&k, &v)?;
 

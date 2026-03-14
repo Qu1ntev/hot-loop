@@ -1,4 +1,5 @@
 use candle_transformers::{quantized_nn::RmsNorm};
+use candle_transformers::models::with_tracing::QMatMul;
 use candle_core::quantized::gguf_file;
 use std::io::{Read, Seek};
 use candle_core::{Device, IndexOp, Result as CandleResult, Tensor};
@@ -7,7 +8,6 @@ use tokenizers::Tokenizer;
 use super::{
     transformers::{
         LayerWeights,
-        QMatMul,
         DEFAULT_SLIDING_WINDOW_TYPE,
         DEFAULT_ROPE_FREQUENCY,
         DEFAULT_ROPE_FREQUENCY_SLIDING,
@@ -164,9 +164,9 @@ impl Gemma {
                 ct.tensor(model, &format!("{prefix}.ffn_down.weight"), device)?;
 
             let mlp = Mlp {
-                feed_forward_gate: QMatMul::from_qtensor(feed_forward_gate)?,
-                feed_forward_up: QMatMul::from_qtensor(feed_forward_up)?,
-                feed_forward_down: QMatMul::from_qtensor(feed_forward_down)?,
+                feed_forward_gate: QMatMul::from_weights(feed_forward_gate.into())?,
+                feed_forward_up: QMatMul::from_weights(feed_forward_up.into())?,
+                feed_forward_down: QMatMul::from_weights(feed_forward_down.into())?,
             };
 
             // Sliding window pattern hardcoded to 6 because it's not explicitly defined
@@ -181,10 +181,10 @@ impl Gemma {
             let rotary_embedding = RotaryEmbedding::new(key_length, layer_rope_frequency, device)?;
 
             layers.push(LayerWeights {
-                attention_wq: QMatMul::from_qtensor(attention_wq)?,
-                attention_wk: QMatMul::from_qtensor(attention_wk)?,
-                attention_wv: QMatMul::from_qtensor(attention_wv)?,
-                attention_wo: QMatMul::from_qtensor(attention_wo)?,
+                attention_wq: QMatMul::from_weights(attention_wq.into())?,
+                attention_wk: QMatMul::from_weights(attention_wk.into())?,
+                attention_wv: QMatMul::from_weights(attention_wv.into())?,
+                attention_wo: QMatMul::from_weights(attention_wo.into())?,
                 attention_q_norm,
                 attention_k_norm,
                 attention_norm,
@@ -209,7 +209,7 @@ impl Gemma {
             embedding_length,
             layers,
             norm,
-            output: QMatMul::from_qtensor(output)?,
+            output: QMatMul::from_weights(output.into())?,
             device: device.clone(),
             chat_template
         })
