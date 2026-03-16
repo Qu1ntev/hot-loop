@@ -1,5 +1,7 @@
 use candle_core::{Tensor, Error};
 
+pub(crate) type KvCache = ConcatKvCache;
+
 #[derive(Debug, Clone)]
 pub struct ConcatKvCache {
     k: Option<Tensor>,
