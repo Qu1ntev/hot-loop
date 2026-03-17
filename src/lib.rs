@@ -63,4 +63,5 @@ pub(crate) use backend::{
     model_weights::{
         ModelWeights, Role
     },
+    transformers
 };

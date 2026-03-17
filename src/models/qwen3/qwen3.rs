@@ -5,7 +5,7 @@ use candle_core::{DType, Device, Result as CandleResult, Tensor};
 use candle_nn::{Embedding, Module};
 use std::io::{Read, Seek};
 use std::sync::Arc;
-use crate::{ModelWeights, KvCache, Error, Role};
+use crate::{ModelWeights, KvCache, Error, Role, transformers::{RotaryEmbedding, mask}};
 use tokenizers::Tokenizer;
 use super::ChatTemplate;
 
@@ -13,7 +13,6 @@ use super::{
     transformers::{
         LayerWeights,
         Gguf,
-        RotaryEmbedding
     }
 };
 
@@ -70,10 +69,10 @@ impl Qwen3 {
         let embed_tokens = Embedding::new(embed_tensor.dequantize(device)?, hidden_size);
 
         let rotary = Arc::new(RotaryEmbedding::new(
-            dtype,
             head_dim,
-            max_position_embeddings,
             rope_freq_base,
+            max_position_embeddings,
+            dtype,
             device,
         )?);
 
@@ -110,33 +109,6 @@ impl Qwen3 {
             chat_template
         })
     }
-
-    fn causal_mask(
-        &self,
-        b: usize,
-        tgt: usize,
-        offset: usize,
-        sw: Option<usize>,
-    ) -> CandleResult<Tensor> {
-        let minf = f32::NEG_INFINITY;
-        let mask: Vec<_> = (0..tgt)
-            .flat_map(|i| {
-                (0..(tgt + offset)).map(move |j| {
-                    let past_ok = j <= i + offset;
-                    let sw_ok = match sw {
-                        Some(w) => (i + offset) as i64 - j as i64 <= w as i64,
-                        None => true,
-                    };
-                    if past_ok && sw_ok {
-                        0.
-                    } else {
-                        minf
-                    }
-                })
-            })
-            .collect();
-        Tensor::from_slice(&mask, (b, 1, tgt, tgt + offset), &self.device)?.to_dtype(self.dtype)
-    }
 }
 
 impl ModelWeights for Qwen3 {
@@ -146,7 +118,7 @@ impl ModelWeights for Qwen3 {
         let causal_mask = if l == 1 {
             None
         } else {
-            Some(self.causal_mask(b, l, offset, None)?)
+            Some(mask(b, l, offset, None, self.dtype, &self.device)?)
         };
         
         for (layer, cache) in self.layers.iter().zip(kv_cache.iter_mut()) {

@@ -1,11 +1,11 @@
 use candle_transformers::quantized_nn::RmsNorm;
 use candle_core::quantized::QTensor;
-use candle_core::D;
-use candle_core::{DType, Device, Result, Tensor};
+use candle_core::{Result, Tensor};
 use candle_nn::Module;
 use candle_transformers::utils::repeat_kv;
 use crate::KvCache;
 use std::sync::Arc;
+use crate::transformers::RotaryEmbedding;
 
 pub const MAX_SEQ_LEN: usize = 131072;
 // pub const DEFAULT_SLIDING_WINDOW_TYPE: usize = 6;
@@ -46,44 +46,7 @@ impl Module for Mlp {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct RotaryEmbedding {
-    sin: Tensor,
-    cos: Tensor,
-}
-
-impl RotaryEmbedding {
-    pub fn new(head_dim: usize, rope_frequency: f32, device: &Device) -> Result<Self> {
-        let theta: Vec<_> = (0..head_dim)
-            .step_by(2)
-            .map(|i| 1f32 / rope_frequency.powf(i as f32 / head_dim as f32))
-            .collect();
-        let theta = Tensor::new(theta.as_slice(), device)?;
-        let idx_theta = Tensor::arange(0, MAX_SEQ_LEN as u32, device)?
-            .to_dtype(DType::F32)?
-            .reshape((MAX_SEQ_LEN, 1))?
-            .matmul(&theta.reshape((1, theta.elem_count()))?)?;
-        let cos = idx_theta.cos()?;
-        let sin = idx_theta.sin()?;
-        Ok(Self { sin, cos })
-    }
-
-    fn apply_rotary_emb_qkv(
-        &self,
-        q: &Tensor,
-        k: &Tensor,
-        index_pos: usize,
-    ) -> Result<(Tensor, Tensor)> {
-        let (_b_sz, _h, seq_len, _n_embd) = q.dims4()?;
-        let cos = self.cos.narrow(0, index_pos, seq_len)?;
-        let sin = self.sin.narrow(0, index_pos, seq_len)?;
-        let q_embed = candle_nn::rotary_emb::rope(&q.contiguous()?, &cos, &sin)?;
-        let k_embed = candle_nn::rotary_emb::rope(&k.contiguous()?, &cos, &sin)?;
-        Ok((q_embed, k_embed))
-    }
-}
-
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct LayerWeights {
     // Attention components
     pub attention_wq: QMatMul,
@@ -120,40 +83,8 @@ pub struct LayerWeights {
 }
 
 impl LayerWeights {
-    pub fn mask(
-        &self,
-        b_sz: usize,
-        seq_len: usize,
-        index_pos: usize,
-        dtype: DType,
-        device: &Device,
-    ) -> Result<Tensor> {
-        let mask: Vec<_> = if let Some(sliding_window_size) = self.sliding_window_size {
-            (0..seq_len)
-                .flat_map(|i| {
-                    (0..seq_len).map(move |j| {
-                        if i < j || j + sliding_window_size < i {
-                            0u32
-                        } else {
-                            1u32
-                        }
-                    })
-                })
-                .collect()
-        } else {
-            (0..seq_len)
-                .flat_map(|i| (0..seq_len).map(move |j| if i < j { 0u32 } else { 1u32 }))
-                .collect()
-        };
-        let mask = Tensor::from_slice(&mask, (seq_len, seq_len), device)?;
-        let mask = if index_pos > 0 {
-            let mask0 = Tensor::zeros((seq_len, index_pos), mask.dtype(), device)?;
-            Tensor::cat(&[&mask0, &mask], D::Minus1)?
-        } else {
-            mask
-        };
-        mask.expand((b_sz, 1, seq_len, seq_len + index_pos))?
-            .to_dtype(dtype)
+    pub fn sliding_window_size(&self) -> Option<usize> {
+        self.sliding_window_size
     }
 
     pub fn forward_attn(
@@ -184,7 +115,7 @@ impl LayerWeights {
 
         let (q, k) = self
             .rotary_embedding
-            .apply_rotary_emb_qkv(&q, &k, index_pos)?;
+            .apply(&q, &k, index_pos)?;
 
         let (k, v) = kv_cache.append(&k, &v)?;
 
@@ -196,10 +127,15 @@ impl LayerWeights {
         let scale = 1.0 / (self.head_dim as f64).sqrt();
         let mut attn_weights = (q.matmul(&k.transpose(2, 3)?)? * scale)?;
 
-        if let Some(mask) = mask {
-            let mask = mask.broadcast_as(attn_weights.shape())?;
-            let neg_inf = self.neg_inf.broadcast_as(attn_weights.dims())?;
-            attn_weights = mask.eq(0u32)?.where_cond(&neg_inf, &attn_weights)?;
+        if let Some(m) = mask {
+            let m_dtype = m.dtype();
+            let scores_dtype = attn_weights.dtype();
+            let mask = if m_dtype != scores_dtype {
+                m.to_dtype(scores_dtype)?
+            } else {
+                m.clone()
+            };
+            attn_weights = attn_weights.broadcast_add(&mask)?;
         }
 
         let attn_weights = candle_nn::ops::softmax_last_dim(&attn_weights)?;

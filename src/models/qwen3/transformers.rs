@@ -1,11 +1,12 @@
 use candle_transformers::models::with_tracing::QMatMul;
 use candle_transformers::{quantized_nn::RmsNorm, utils::repeat_kv};
 use candle_core::quantized::{gguf_file, QTensor};
-use candle_core::{DType, Device, Result, Tensor};
+use candle_core::{Device, Result, Tensor};
 use candle_nn::{Activation, Module};
 use std::io::{Read, Seek};
 use std::sync::Arc;
 use crate::{KvCache};
+use crate::transformers::RotaryEmbedding;
 
 pub(crate) struct Gguf<R: Read + Seek> {
     ct: gguf_file::Content,
@@ -70,50 +71,7 @@ impl Module for MlpWeights {
     }
 }
 
-#[derive(Debug, Clone)]
-pub(crate) struct RotaryEmbedding {
-    sin: Tensor,
-    cos: Tensor,
-}
-
-impl RotaryEmbedding {
-    pub fn new(
-        dtype: DType,
-        head_dim: usize,
-        max_position_embeddings: usize,
-        rope_theta: f64,
-        dev: &Device,
-    ) -> Result<Self> {
-        let dim = head_dim;
-        let max_seq_len = max_position_embeddings;
-        let inv_freq: Vec<_> = (0..dim)
-            .step_by(2)
-            .map(|i| 1f32 / rope_theta.powf(i as f64 / dim as f64) as f32)
-            .collect();
-        let inv_freq_len = inv_freq.len();
-        let inv_freq = Tensor::from_vec(inv_freq, (1, inv_freq_len), dev)?.to_dtype(dtype)?;
-        let t = Tensor::arange(0u32, max_seq_len as u32, dev)?
-            .to_dtype(dtype)?
-            .reshape((max_seq_len, 1))?;
-        let freqs = t.matmul(&inv_freq)?;
-        Ok(Self {
-            sin: freqs.sin()?,
-            cos: freqs.cos()?,
-        })
-    }
-
-    /// Apply RoPE (q, k shape: B x H x L x D)
-    pub fn apply(&self, q: &Tensor, k: &Tensor, offset: usize) -> Result<(Tensor, Tensor)> {
-        let (_, _, seq_len, _) = q.dims4()?;
-        let cos = self.cos.narrow(0, offset, seq_len)?.to_dtype(q.dtype())?;
-        let sin = self.sin.narrow(0, offset, seq_len)?.to_dtype(q.dtype())?;
-        let q_embed = candle_nn::rotary_emb::rope(&q.contiguous()?, &cos, &sin)?;
-        let k_embed = candle_nn::rotary_emb::rope(&k.contiguous()?, &cos, &sin)?;
-        Ok((q_embed, k_embed))
-    }
-}
-
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 struct AttentionWeights {
     q_proj: QMatMul,
     k_proj: QMatMul,
@@ -220,7 +178,7 @@ impl AttentionWeights {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub(crate) struct LayerWeights {
     self_attn: AttentionWeights,
     mlp: MlpWeights,

@@ -1,25 +1,25 @@
 use std::io::{Read, Seek};
 use candle_transformers::quantized_nn::RmsNorm;
 use candle_core::quantized::gguf_file;
-use candle_core::{Device, IndexOp, Result as CandleResult, Tensor};
+use candle_core::{DType, Device, IndexOp, Result as CandleResult, Tensor};
 use candle_nn::{Embedding, Module};
 use crate::{
     KvCache,
     ModelWeights,
     Error,
     Role,
+    transformers::{RotaryEmbedding, mask}
 };
 use super::transformers::{
     LayerWeights,
     QMatMul,
-    RotaryEmbedding,
     Mlp,
 };
 use super::ChatTemplate;
 use tokenizers::Tokenizer;
 use std::sync::Arc;
 
-// pub const MAX_SEQ_LEN: usize = 131072;
+pub const MAX_SEQ_LEN: usize = 131072;
 pub const DEFAULT_SLIDING_WINDOW_TYPE: usize = 6;
 pub const DEFAULT_ROPE_FREQUENCY: f32 = 1_000_000.;
 pub const DEFAULT_ROPE_FREQUENCY_SLIDING: f32 = 10_000.;
@@ -113,10 +113,10 @@ impl Gemma {
         };
 
         let rope_global = Arc::new(RotaryEmbedding::new(
-            key_length, rope_freq_base, device
+            key_length, rope_freq_base as f64, MAX_SEQ_LEN, DType::F16, &device
         )?);
         let rope_sliding = Arc::new(RotaryEmbedding::new(
-            key_length, rope_freq_base_sliding, device
+            key_length, rope_freq_base_sliding as f64, MAX_SEQ_LEN, DType::F16, &device
         )?);
 
         let mut layers = Vec::with_capacity(block_count);
@@ -176,7 +176,7 @@ impl Gemma {
             };
 
             // Sliding window pattern hardcoded to 6 because it's not explicitly defined
-            let is_sliding = (layer_idx + 1) % sliding_window_type > 0;
+            let is_sliding = ((layer_idx + 1) % sliding_window_type) > 0;
             let sliding_window_size = is_sliding.then_some(sliding_window_size);
             let rotary_embedding = if is_sliding {
                 rope_sliding.clone()
@@ -228,17 +228,18 @@ impl ModelWeights for Gemma {
         let mut layer_in = self.tok_embeddings.forward(input)?;
         layer_in = (layer_in * (self.embedding_length as f64).sqrt())?;
 
-        for (layer, cache) in self.layers.iter().zip(kv_cache.iter_mut()) {
-            let attention_mask = if seq_len == 1 {
-                None
-            } else {
-                Some(layer.mask(b_sz, seq_len, offset, input.dtype(), input.device())?)
-            };
+        let causal_mask = if seq_len == 1 {
+            None
+        } else {
+            Some(mask(b_sz, seq_len, offset, None, input.dtype(), input.device())?)
+        };
 
+        for (layer, cache) in self.layers.iter().zip(kv_cache.iter_mut()) {
+            
             // Attention block
             let residual = &layer_in;
             let x = layer.attention_norm.forward(&layer_in)?;
-            let x = layer.forward_attn(&x, attention_mask.as_ref(), offset, cache)?;
+            let x = layer.forward_attn(&x, causal_mask.as_ref(), offset, cache)?;
             let x = layer.post_attention_norm.forward(&x)?;
             let x = (x + residual)?;
 
