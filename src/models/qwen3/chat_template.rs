@@ -1,5 +1,6 @@
 use tokenizers::Tokenizer;
-use crate::{Error, Role};
+use crate::Error;
+use crate::session::history::Role;
 
 const IM_START: &str =  "<|im_start|>";
 const IM_END: &str =    "<|im_end|>";

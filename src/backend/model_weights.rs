@@ -2,15 +2,9 @@ use candle_core::{Device, Result as CandleResult, Tensor};
 use crate::{Error, session::Session};
 use crate::utils::kv_cache::KvCache;
 use tokenizers::Tokenizer;
+use crate::session::history::Role;
 
-#[derive(Clone, Copy)]
-pub enum Role {
-    System,
-    User,
-    Assistant,
-}
-
-pub trait ModelWeights {
+pub(crate) trait ModelWeights {
     fn forward(&self, input: &Tensor, offset: usize, kv_cache: &mut Vec<KvCache>) -> CandleResult<Tensor>;
     
     fn layers_len(&self) -> usize;

@@ -2,21 +2,21 @@ use candle_transformers::generation::{LogitsProcessor, Sampling};
 use candle_core::Tensor;
 use super::Generation;
 use crate::{
-    Error, ModelWeights, settings::{Settings, Seed}, Role
+    Error, Model, settings::{Settings, Seed}
 };
+use crate::session::history::Role;
 use crate::utils::kv_cache::KvCache;
 use crate::utils::token_output_stream::TokenOutputStream;
 
 #[non_exhaustive]
-#[derive(Clone)]
-pub struct Session<'a, M: ModelWeights> {
+pub struct Session<'a, M: Model> {
     model: &'a M, // read only
     settings: Settings,
     kv_cache: Vec<KvCache>,
     tos: TokenOutputStream<'a>
 }
 
-impl<'a, M: ModelWeights> Session<'a, M> {
+impl<'a, M: Model> Session<'a, M> {
     pub(crate) fn new(model: &'a M) -> Self {
         let settings = Settings::default();
         let kv_cache = model.create_kv_cache();

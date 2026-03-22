@@ -1,13 +1,13 @@
 use candle_core::{Device, Tensor};
 use candle_transformers::generation::LogitsProcessor;
 use crate::{
-    Error, ModelWeights, settings::Settings,
+    Error, Model, settings::Settings,
 };
 use crate::utils::token_output_stream::TokenOutputStream;
 use crate::utils::kv_cache::KvCache;
 
 #[non_exhaustive]
-pub struct Generation<'a, 'b, M: ModelWeights> {
+pub struct Generation<'a, 'b, M: Model> {
     pub(crate) model: &'b M,
     pub(crate) index: usize,
     pub(crate) next_token: u32,
@@ -21,7 +21,7 @@ pub struct Generation<'a, 'b, M: ModelWeights> {
     pub(crate) kv_cache: &'a mut Vec<KvCache>
 }
 
-impl<'a, 'b, M: ModelWeights> Generation<'a, 'b, M> {
+impl<'a, 'b, M: Model> Generation<'a, 'b, M> {
     pub fn next_chunk(&mut self) -> Result<Option<String>, Error> {
         loop {
             if self.parameters.sample_len <= self.index || self.next_token == self.eos_token {
@@ -66,7 +66,7 @@ impl<'a, 'b, M: ModelWeights> Generation<'a, 'b, M> {
     }
 }
 
-impl<'a, 'b, M: ModelWeights> Drop for Generation<'a, 'b, M> {
+impl<'a, 'b, M: Model> Drop for Generation<'a, 'b, M> {
     fn drop(&mut self) {
         self.tos.clear();
     }

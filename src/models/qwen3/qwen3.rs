@@ -5,10 +5,11 @@ use candle_core::{DType, Device, Result as CandleResult, Tensor};
 use candle_nn::{Embedding, Module};
 use std::io::{Read, Seek};
 use std::sync::Arc;
-use crate::{ModelWeights, Error, Role};
+use crate::{ModelWeights, Error};
 use crate::utils::kv_cache::KvCache;
 use tokenizers::Tokenizer;
 use super::ChatTemplate;
+use crate::session::history::Role;
 
 use super::{
     transformers::{
