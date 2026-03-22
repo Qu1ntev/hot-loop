@@ -1,0 +1,46 @@
+use candle_core::{Device, Result};
+use candle_core::quantized::QTensor;
+use candle_transformers::models::with_tracing::QMatMul;
+use candle_transformers::quantized_nn::RmsNorm;
+use std::io::{Read, Seek};
+use candle_core::quantized::gguf_file::{Content, Value};
+
+pub(crate) struct Gguf<'a, R: Read + Seek> {
+    ct: &'a Content,
+    reader: &'a mut R,
+    device: &'a Device,
+    prefix: &'a str,
+}
+
+impl<'a, R: Read + Seek> Gguf<'a, R> {
+    pub fn new(
+        prefix: &'a str,
+        ct: &'a Content,
+        reader: &'a mut R,
+        device: &'a Device
+    ) -> Self {
+        Self { ct, reader, device, prefix }
+    }
+    
+    pub fn get_with_prefix(&self, key: &str) -> Result<&Value> {
+        let key = format!("{}.{}", self.prefix, key);
+        match self.ct.metadata.get(&key) {
+            None => candle_core::bail!("cannot find {key} in metadata"),
+            Some(v) => Ok(v),
+        }
+    }
+    
+    pub fn qmatmul(&mut self, name: &str) -> Result<QMatMul> {
+        let ws = self.ct.tensor(&mut self.reader, name, &self.device)?;
+        QMatMul::from_weights(ws.into())
+    }
+
+    pub fn rms_norm(&mut self, name: &str, eps: f64) -> Result<RmsNorm> {
+        let ws = self.ct.tensor(&mut self.reader, name, &self.device)?;
+        RmsNorm::from_qtensor(ws, eps)
+    }
+
+    pub fn tensor(&mut self, name: &str) -> Result<QTensor> {
+        self.ct.tensor(&mut self.reader, name, &self.device)
+    }
+}

@@ -7,9 +7,9 @@ use crate::{
     Role
 };
 use crate::utils::token_output_stream::TokenOutputStream;
+use super::history::Message;
 
 #[non_exhaustive]
-#[derive(Clone)]
 pub struct Session<'a, M: ModelWeights> {
     model: &'a M, // read only
     settings: Settings,
@@ -31,16 +31,29 @@ impl<'a, M: ModelWeights> Session<'a, M> {
         }
     }
 
-    pub fn generate(&mut self, prompt: &str) -> Result<Generation<'_, 'a, M>, Error> {
-        let user_tokens = self.model.fmt_prompt(prompt, Role::User)?;
+    pub fn generate(&mut self, history: &[Message]) -> Result<Generation<'_, 'a, M>, Error> {
+        let mut tokens = Vec::new();
+        
+        for msg in history {
+            let tok = self.model.fmt_prompt(&msg.message, msg.role)?;
+            tokens.extend_from_slice(&tok);
+        }
+
+        println!("tokens: {tokens:?}");
+        println!("tokens len: {}", tokens.len());
+
         let assistant_start_tokens = self.model.assistant_start_template();
-
-        let mut tokens = Vec::with_capacity(
-            user_tokens.len() + assistant_start_tokens.len()
-        );
-
-        tokens.extend_from_slice(&user_tokens);
         tokens.extend_from_slice(&assistant_start_tokens);
+
+        // let user_tokens = self.model.fmt_prompt(prompt, Role::User)?;
+        // let assistant_start_tokens = self.model.assistant_start_template();
+        //
+        // let mut tokens = Vec::with_capacity(
+        //     user_tokens.len() + assistant_start_tokens.len()
+        // );
+        //
+        // tokens.extend_from_slice(&user_tokens);
+        // tokens.extend_from_slice(&assistant_start_tokens);
 
         let logits_processor = {
             let temperature = self.settings.temperature;

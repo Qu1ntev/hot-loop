@@ -8,13 +8,19 @@ use crate::{
     ModelWeights,
     Error,
     Role,
-    transformers::{RotaryEmbedding, mask}
 };
+
+use crate::transformers::rotary_embedding::RotaryEmbedding;
+use crate::transformers::mask::mask;
+// use crate::transformers::weights::Layer;
+// use crate::transformers::gguf::Gguf;
+
 use super::transformers::{
     LayerWeights,
     QMatMul,
     Mlp,
 };
+
 use super::ChatTemplate;
 use tokenizers::Tokenizer;
 use std::sync::Arc;
@@ -75,7 +81,6 @@ impl Gemma {
         let key_length = md_get("attention.key_length")?.to_u32()? as usize;
         let _value_length = md_get("attention.value_length")?.to_u32()? as usize;
         let rms_norm_eps = md_get("attention.layer_norm_rms_epsilon")?.to_f32()? as f64;
-        let sliding_window_size = md_get("attention.sliding_window")?.to_u32()? as usize;
 
         let sliding_window_type = md_get("attention.sliding_window_type")
             .and_then(|m| Ok(m.to_u32()? as usize))
@@ -97,8 +102,6 @@ impl Gemma {
         // Compute the dimensions for queries, keys, and values
         // These are the total dimensions when projected across all heads
         let q_dim = head_count * key_length;
-
-        let neg_inf = Tensor::new(f32::NEG_INFINITY, device)?;
 
         // Load token embeddings and output projection
         let tok_embeddings = ct.tensor(model, "token_embd.weight", device)?;
@@ -126,8 +129,7 @@ impl Gemma {
             let attention_wq = ct.tensor(model, &format!("{prefix}.attn_q.weight"), device)?;
             let attention_wk = ct.tensor(model, &format!("{prefix}.attn_k.weight"), device)?;
             let attention_wv = ct.tensor(model, &format!("{prefix}.attn_v.weight"), device)?;
-            let attention_wo =
-                ct.tensor(model, &format!("{prefix}.attn_output.weight"), device)?;
+            let attention_wo = ct.tensor(model, &format!("{prefix}.attn_output.weight"), device)?;
 
             let attention_q_norm = RmsNorm::from_qtensor(
                 ct.tensor(model, &format!("{prefix}.attn_q_norm.weight"), device)?,
@@ -177,7 +179,7 @@ impl Gemma {
 
             // Sliding window pattern hardcoded to 6 because it's not explicitly defined
             let is_sliding = ((layer_idx + 1) % sliding_window_type) > 0;
-            let sliding_window_size = is_sliding.then_some(sliding_window_size);
+            
             let rotary_embedding = if is_sliding {
                 rope_sliding.clone()
             } else {
@@ -200,9 +202,7 @@ impl Gemma {
                 n_kv_head: head_count_kv,
                 head_dim: key_length,
                 q_dim,
-                sliding_window_size,
                 rotary_embedding,
-                neg_inf: neg_inf.clone(),
                 // kv_cache: None,
             })
         }
@@ -224,39 +224,39 @@ impl Gemma {
 impl ModelWeights for Gemma {
     fn forward(&self, input: &Tensor, offset: usize, kv_cache: &mut Vec<KvCache>) -> CandleResult<Tensor> {
         let (b_sz, seq_len) = input.dims2()?;
-
+        
         let mut layer_in = self.tok_embeddings.forward(input)?;
         layer_in = (layer_in * (self.embedding_length as f64).sqrt())?;
-
+        
         let causal_mask = if seq_len == 1 {
             None
         } else {
             Some(mask(b_sz, seq_len, offset, None, input.dtype(), input.device())?)
         };
-
+        
         for (layer, cache) in self.layers.iter().zip(kv_cache.iter_mut()) {
-            
+        
             // Attention block
             let residual = &layer_in;
             let x = layer.attention_norm.forward(&layer_in)?;
             let x = layer.forward_attn(&x, causal_mask.as_ref(), offset, cache)?;
             let x = layer.post_attention_norm.forward(&x)?;
             let x = (x + residual)?;
-
+        
             // Feed-forward block
             let residual = &x;
             let x = layer.ffn_norm.forward(&x)?;
             let x = layer.mlp.forward(&x)?;
             let x = layer.post_ffn_norm.forward(&x)?;
             let x = (x + residual)?;
-
+        
             layer_in = x;
         }
-
+        
         let x = layer_in.i((.., seq_len - 1, ..))?;
         let x = self.norm.forward(&x)?;
         let output = self.output.forward(&x)?;
-
+        
         Ok(output)
     }
 

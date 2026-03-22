@@ -2,7 +2,7 @@ use candle_core::{Tensor, Error};
 
 pub(crate) type KvCache = ConcatKvCache;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ConcatKvCache {
     k: Option<Tensor>,
     v: Option<Tensor>,
@@ -10,7 +10,7 @@ pub struct ConcatKvCache {
 
     k_roll: Option<Tensor>,
     v_roll: Option<Tensor>,
-    roll_len: usize
+    // roll_len: usize
 }
 
 impl ConcatKvCache {
@@ -34,7 +34,7 @@ impl ConcatKvCache {
 
             k_roll: None,
             v_roll: None,
-            roll_len: 0
+            // roll_len: 0
         }
     }
 
@@ -42,7 +42,7 @@ impl ConcatKvCache {
         self.k_roll = self.k.clone();
         self.v_roll = self.v.clone();
 
-        self.roll_len = self.current_seq_len();
+        // self.roll_len = self.current_seq_len();
     }
 
     pub fn rollback(&mut self) {
@@ -53,7 +53,7 @@ impl ConcatKvCache {
     fn clear_rollback(&mut self) {
         self.k_roll = None;
         self.v_roll = None;
-        self.roll_len = 0;
+        // self.roll_len = 0;
     }
 
     /// Get current sequence length in the cache

@@ -5,7 +5,7 @@ use candle_nn::Module;
 use candle_transformers::utils::repeat_kv;
 use crate::KvCache;
 use std::sync::Arc;
-use crate::transformers::RotaryEmbedding;
+use crate::transformers::rotary_embedding::RotaryEmbedding;
 
 pub const MAX_SEQ_LEN: usize = 131072;
 // pub const DEFAULT_SLIDING_WINDOW_TYPE: usize = 6;
@@ -73,20 +73,10 @@ pub struct LayerWeights {
     pub head_dim: usize,  // Dimension of each head
     pub q_dim: usize,     // Total dimension for queries
 
-    pub sliding_window_size: Option<usize>,
-
     pub rotary_embedding: Arc<RotaryEmbedding>,
-    pub neg_inf: Tensor,
-
-    // Cache
-    // kv_cache: Option<(Tensor, Tensor)>,
 }
 
 impl LayerWeights {
-    pub fn sliding_window_size(&self) -> Option<usize> {
-        self.sliding_window_size
-    }
-
     pub fn forward_attn(
         &self,
         x: &Tensor,

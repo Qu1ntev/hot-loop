@@ -58,10 +58,11 @@ pub use backend::{
     error::Error,
     session,
     settings,
+    session::history::Role
 };
 pub(crate) use backend::{
     model_weights::{
-        ModelWeights, Role
+        ModelWeights
     },
     transformers
 };

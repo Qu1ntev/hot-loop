@@ -55,7 +55,7 @@ impl ChatTemplate {
     pub fn tokenizer(&self) -> &Tokenizer {
         &self.tokenizer
     }
-    
+
     /// ## output ids:
     /// ```rust
     /// "<|im_start|>{role}\n{prompt}<|im_end|>\n"
@@ -82,7 +82,7 @@ impl ChatTemplate {
 
         Ok(tokens)
     }
-    
+
     /// ## output ids:
     /// ```rust
     /// "<|im_start|>assistant\n"
@@ -90,7 +90,7 @@ impl ChatTemplate {
     pub fn assistant_start_template(&self) -> Vec<u32> { // FIX!!! think mode
         vec![self.im_start, self.assistant, self.new_line]
     }
-    
+
     pub fn eos_token(&self) -> u32 {
         self.im_end
     }
