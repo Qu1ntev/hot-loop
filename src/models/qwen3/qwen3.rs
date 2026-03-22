@@ -172,8 +172,8 @@ impl ModelWeights for Qwen3 {
         &self.device
     }
 
-    fn fmt_prompt(&self, prompt: &str, role: Role) -> Result<Vec<u32>, Error> {
-        self.chat_template.fmt_prompt(prompt, role)
+    fn fmt_prompt(&self, role: Role, text: &str) -> Result<Vec<u32>, Error> {
+        self.chat_template.fmt_prompt(role, text)
     }
 
     fn assistant_start_template(&self) -> Vec<u32> {

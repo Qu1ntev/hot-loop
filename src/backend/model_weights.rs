@@ -25,7 +25,7 @@ pub trait ModelWeights {
 
     fn current_device(&self) -> &Device;
 
-    fn fmt_prompt(&self, prompt: &str, role: Role) -> Result<Vec<u32>, Error>;
+    fn fmt_prompt(&self, role: Role, text: &str) -> Result<Vec<u32>, Error>;
     fn assistant_start_template(&self) -> Vec<u32>;
     fn eos_token(&self) -> u32;
 }

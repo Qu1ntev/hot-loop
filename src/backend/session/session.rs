@@ -1,10 +1,9 @@
 use candle_transformers::generation::{LogitsProcessor, Sampling};
-use candle_core::Tensor;
 use super::Generation;
 use crate::{
     Error, Model, settings::{Settings, Seed}
 };
-use crate::session::history::Role;
+use crate::session::history::Message;
 use crate::utils::kv_cache::KvCache;
 use crate::utils::token_output_stream::TokenOutputStream;
 
@@ -30,15 +29,10 @@ impl<'model, M: Model> Session<'model, M> {
         }
     }
 
-    pub fn generate(&mut self, prompt: &str) -> Result<Generation<'_, 'model, M>, Error> {
-        let user_tokens = self.model.fmt_prompt(prompt, Role::User)?;
+    pub fn generate(&mut self, messages: &[Message]) -> Result<Generation<'_, 'model, M>, Error> {
+        let mut tokens = self.message_tokens(messages)?;
+
         let assistant_start_tokens = self.model.assistant_start_template();
-
-        let mut tokens = Vec::with_capacity(
-            user_tokens.len() + assistant_start_tokens.len()
-        );
-
-        tokens.extend_from_slice(&user_tokens);
         tokens.extend_from_slice(&assistant_start_tokens);
 
         let logits_processor = {
@@ -86,47 +80,30 @@ impl<'model, M: Model> Session<'model, M> {
         self.settings = settings;
     }
 
-    pub fn with_system_prompt(mut self, system_prompt: &str) -> Result<Self, Error> {
-        self.set_system_prompt_and_clear_history(system_prompt)?;
-        Ok(self)
-    }
-
-    pub fn set_system_prompt_and_clear_history(&mut self, system_prompt: &str) -> Result<(), Error> {
-        self.reset_all_cache();
-
-        let sys_tokens = self.model.fmt_prompt(system_prompt, Role::System)?;
-
-        let input = Tensor::new(sys_tokens, self.model.current_device())?.unsqueeze(0)?;
-        let _ = self.model.forward(&input, 0, &mut self.kv_cache)?;
-
-        self.set_cache_rollback();
-
+    fn truncate_cache(&mut self, index: usize) -> Result<(), Error> {
+        for cache in &mut self.kv_cache {
+            cache.truncate(index)?;
+        }
         Ok(())
     }
 
-    pub fn clear_history(&mut self) {
-        self.cache_rollback();
-    }
-
-    pub fn clear_system_prompt_and_history(&mut self) {
-        self.reset_all_cache();
-    }
-
-    fn set_cache_rollback(&mut self) {
+    pub fn clear_cache(&mut self) {
         for cache in &mut self.kv_cache {
-            cache.set_rollback();
+            cache.clear();
         }
     }
-
-    fn cache_rollback(&mut self) {
-        for cache in &mut self.kv_cache {
-            cache.rollback();
+    
+    fn message_tokens(&self, messages: &[Message]) -> Result<Vec<u32>, Error> {
+        let mut tokens = Vec::new();
+        
+        for message in messages {
+            let tk = self.model.fmt_prompt(
+                message.role,
+                &message.text
+            )?;
+            tokens.extend_from_slice(&tk);
         }
-    }
-
-    fn reset_all_cache(&mut self) {
-        for cache in &mut self.kv_cache {
-            cache.reset_all();
-        }
+        
+        Ok(tokens)
     }
 }

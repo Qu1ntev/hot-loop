@@ -7,9 +7,6 @@ pub struct ConcatKvCache {
     k: Option<Tensor>,
     v: Option<Tensor>,
     dim: usize,
-
-    k_roll: Option<Tensor>,
-    v_roll: Option<Tensor>,
 }
 
 impl ConcatKvCache {
@@ -30,25 +27,7 @@ impl ConcatKvCache {
             k: None,
             v: None,
             dim,
-
-            k_roll: None,
-            v_roll: None,
         }
-    }
-
-    pub(crate) fn set_rollback(&mut self) {
-        self.k_roll = self.k.clone();
-        self.v_roll = self.v.clone();
-    }
-
-    pub(crate) fn rollback(&mut self) {
-        self.k = self.k_roll.clone();
-        self.v = self.v_roll.clone();
-    }
-
-    fn clear_rollback(&mut self) {
-        self.k_roll = None;
-        self.v_roll = None;
     }
 
     /// Get current sequence length in the cache
@@ -73,34 +52,51 @@ impl ConcatKvCache {
     /// Tuple of `(full_k, full_v)` containing all cached keys and values,
     /// including the newly appended data.
     pub(crate) fn append(&mut self, k: &Tensor, v: &Tensor) -> Result<(Tensor, Tensor), Error> {
-        // Ensure inputs are contiguous for optimal concatenation performance
         let k = k.contiguous()?;
         let v = v.contiguous()?;
 
-        self.k = Some(match &self.k {
-            None => k.clone(),
+        let k = match &self.k {
+            None => k,
             Some(k_cache) => Tensor::cat(&[k_cache, &k], self.dim)?
-        });
+        };
 
-        self.v = Some(match &self.v {
-            None => v.clone(),
+        let v = match &self.v {
+            None => v,
             Some(v_cache) => Tensor::cat(&[v_cache, &v], self.dim)?
-        });
+        };
 
-        let k = self.k.as_ref().ok_or(Error::UnwrapNone)?.clone();
-        let v = self.v.as_ref().ok_or(Error::UnwrapNone)?.clone();
+        self.k = Some(k.clone());
+        self.v = Some(v.clone());
 
         Ok((k, v))
     }
 
-    /// Reset the cache (clear all stored keys and values)
-    fn clear_kv(&mut self) {
-        self.k = None;
-        self.v = None;
+    /// truncate kv_cache: cache[..index]
+    pub(crate) fn truncate(&mut self, index: usize) -> Result<(), Error> {
+        let current = self.current_seq_len();
+
+        if index >= current {
+            return Ok(());
+        }
+
+        if index == 0 {
+            self.clear();
+            return Ok(());
+        }
+
+        if let Some(k) = &self.k {
+            self.k = Some(k.narrow(self.dim, 0, index)?.contiguous()?);
+        }
+        if let Some(v) = &self.v {
+            self.v = Some(v.narrow(self.dim, 0, index)?.contiguous()?);
+        }
+
+        Ok(())
     }
 
-    pub(crate) fn reset_all(&mut self) {
-        self.clear_kv();
-        self.clear_rollback();
+    /// Reset the cache (clear all stored keys and values)
+    pub(crate) fn clear(&mut self) {
+        self.k = None;
+        self.v = None;
     }
 }

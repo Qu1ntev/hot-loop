@@ -61,7 +61,7 @@ impl ChatTemplate {
     /// ```rust
     /// "<|im_start|>{role}\n{prompt}<|im_end|>\n"
     /// ```
-    pub fn fmt_prompt(&self, prompt: &str, role: Role) -> Result<Vec<u32>, Error> {
+    pub fn fmt_prompt(&self, role: Role, text: &str) -> Result<Vec<u32>, Error> {
         let role = match role {
             Role::System => self.system,
             Role::User => self.user,
@@ -71,7 +71,7 @@ impl ChatTemplate {
         let left = [self.im_start, role, self.new_line];
         let right = [self.im_end, self.new_line];
 
-        let prompt = self.tokenizer.encode(prompt, false)?;
+        let prompt = self.tokenizer.encode(text, false)?;
 
         let mut tokens = Vec::with_capacity(
             left.len() + prompt.get_ids().len() + right.len()
