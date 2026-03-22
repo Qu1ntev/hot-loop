@@ -1,8 +1,8 @@
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub(crate) enum Role {
+pub enum Role {
     System,
     User,
-    Assistant,
+    // Assistant,
 }
 
 // #[derive(Debug, Clone, Eq, PartialEq)]
@@ -10,7 +10,7 @@ pub(crate) enum Role {
 //     pub role: Role,
 //     pub text: String,
 // }
-// 
+//
 // impl Message {
 //     pub fn new<S: Into<String>>(role: Role, text: S) -> Self {
 //         Self { role, text: text.into() }

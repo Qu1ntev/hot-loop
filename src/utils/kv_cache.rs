@@ -3,7 +3,7 @@ use candle_core::{Tensor, Error};
 pub(crate) type KvCache = ConcatKvCache;
 
 #[derive(Debug, Clone)]
-pub(crate) struct ConcatKvCache {
+pub struct ConcatKvCache {
     k: Option<Tensor>,
     v: Option<Tensor>,
     dim: usize,
