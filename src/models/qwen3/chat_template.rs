@@ -65,7 +65,7 @@ impl ChatTemplate {
         let role = match role {
             Role::System => self.system,
             Role::User => self.user,
-            // Role::Assistant => self.assistant,
+            Role::Assistant => self.assistant,
         };
 
         let left = [self.im_start, role, self.new_line];

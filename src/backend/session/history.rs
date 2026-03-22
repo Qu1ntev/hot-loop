@@ -2,7 +2,7 @@
 pub enum Role {
     System,
     User,
-    // Assistant,
+    Assistant,
 }
 
 // #[derive(Debug, Clone, Eq, PartialEq)]
