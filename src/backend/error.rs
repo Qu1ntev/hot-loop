@@ -9,20 +9,6 @@ pub enum Error {
     #[error(transparent)]
     Tokenizers(#[from] tokenizer::Error),
 
-    #[error("is_none")]
-    None
+    #[error("UnwrapNone: {0}")]
+    UnwrapNone(String),
 }
-
-// ADD KIND
-
-// pub enum ErrorKind {
-//
-// }
-//
-// impl Error {
-//     pub fn kind(&self) -> ErrorKind {
-//         match self {
-//
-//         }
-//     }
-// }

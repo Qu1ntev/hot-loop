@@ -27,7 +27,7 @@ impl ChatTemplate {
     pub fn new(
         tokenizer: Tokenizer
     ) -> Result<Self, Error> {
-        let get = |text: &str| tokenizer.token_to_id(text).ok_or(Error::None);
+        let get = |text: &str| tokenizer.token_to_id(text).ok_or(Error::UnwrapNone("No token named".to_string()));
 
         let im_start =  get(IM_START)?;
         let im_end =    get(IM_END)?;
@@ -37,7 +37,7 @@ impl ChatTemplate {
         let assistant = get(ASSISTANT)?;
 
         let new_line = *tokenizer.encode(NEW_LINE, false)?
-            .get_ids().get(0).ok_or(Error::None)?;
+            .get_ids().get(0).ok_or(Error::UnwrapNone("No token named".to_string()))?;
 
         Ok(Self {
             tokenizer,

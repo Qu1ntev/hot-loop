@@ -30,7 +30,7 @@ impl<'a, 'b, M: Model> Generation<'a, 'b, M> {
 
             let current_pos = self.kv_cache
                 .get(0)
-                .ok_or(Error::None)?
+                .ok_or(Error::UnwrapNone("Kv Cache current pos".to_string()))?
                 .current_seq_len();
 
             let logits = if self.index == 0 {
