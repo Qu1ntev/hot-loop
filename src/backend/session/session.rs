@@ -9,15 +9,15 @@ use crate::utils::kv_cache::KvCache;
 use crate::utils::token_output_stream::TokenOutputStream;
 
 #[non_exhaustive]
-pub struct Session<'a, M: Model> {
-    model: &'a M, // read only
+pub struct Session<'model, M: Model> {
+    model: &'model M, // read only
     settings: Settings,
     kv_cache: Vec<KvCache>,
-    tos: TokenOutputStream<'a>
+    tos: TokenOutputStream<'model>
 }
 
-impl<'a, M: Model> Session<'a, M> {
-    pub(crate) fn new(model: &'a M) -> Self {
+impl<'model, M: Model> Session<'model, M> {
+    pub(crate) fn new(model: &'model M) -> Self {
         let settings = Settings::default();
         let kv_cache = model.create_kv_cache();
         let tos = TokenOutputStream::new(model.tokenizer());
@@ -30,7 +30,7 @@ impl<'a, M: Model> Session<'a, M> {
         }
     }
 
-    pub fn generate(&mut self, prompt: &str) -> Result<Generation<'_, 'a, M>, Error> {
+    pub fn generate(&mut self, prompt: &str) -> Result<Generation<'_, 'model, M>, Error> {
         let user_tokens = self.model.fmt_prompt(prompt, Role::User)?;
         let assistant_start_tokens = self.model.assistant_start_template();
 

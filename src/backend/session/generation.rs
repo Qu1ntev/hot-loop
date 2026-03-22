@@ -7,21 +7,21 @@ use crate::utils::token_output_stream::TokenOutputStream;
 use crate::utils::kv_cache::KvCache;
 
 #[non_exhaustive]
-pub struct Generation<'a, 'b, M: Model> {
-    pub(crate) model: &'b M,
+pub struct Generation<'a, 'model, M: Model> {
+    pub(crate) model: &'model M,
     pub(crate) index: usize,
     pub(crate) next_token: u32,
     pub(crate) tokens: Vec<u32>,
     pub(crate) all_tokens: Vec<u32>,
     pub(crate) parameters: Settings,
-    pub(crate) device: &'b Device,
+    pub(crate) device: &'model Device,
     pub(crate) eos_token: u32,
     pub(crate) logits_processor: LogitsProcessor,
-    pub(crate) tos: &'a mut TokenOutputStream<'b>,
+    pub(crate) tos: &'a mut TokenOutputStream<'model>,
     pub(crate) kv_cache: &'a mut Vec<KvCache>
 }
 
-impl<'a, 'b, M: Model> Generation<'a, 'b, M> {
+impl<'a, 'model, M: Model> Generation<'a, 'model, M> {
     pub fn next_chunk(&mut self) -> Result<Option<String>, Error> {
         loop {
             if self.parameters.sample_len <= self.index || self.next_token == self.eos_token {
@@ -66,7 +66,7 @@ impl<'a, 'b, M: Model> Generation<'a, 'b, M> {
     }
 }
 
-impl<'a, 'b, M: Model> Drop for Generation<'a, 'b, M> {
+impl<'a, 'model, M: Model> Drop for Generation<'a, 'model, M> {
     fn drop(&mut self) {
         self.tos.clear();
     }
