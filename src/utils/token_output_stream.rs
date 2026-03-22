@@ -4,7 +4,7 @@ use tokenizers::Tokenizer;
 const REPL: char = '\u{FFFD}';
 
 #[derive(Clone)]
-pub struct TokenOutputStream<'a> {
+pub(crate) struct TokenOutputStream<'a> {
     tokenizer: &'a Tokenizer,
     tokens: Vec<u32>,
     prev_index: usize,
@@ -12,7 +12,7 @@ pub struct TokenOutputStream<'a> {
 }
 
 impl<'a> TokenOutputStream<'a> {
-    pub fn new(tokenizer: &'a Tokenizer) -> Self {
+    pub(crate) fn new(tokenizer: &'a Tokenizer) -> Self {
         Self {
             tokenizer,
             tokens: Vec::new(),
@@ -21,7 +21,7 @@ impl<'a> TokenOutputStream<'a> {
         }
     }
 
-    pub fn next_token(&mut self, token: u32) -> Result<Option<String>> {
+    pub(crate) fn next_token(&mut self, token: u32) -> Result<Option<String>> {
         let prev_text = self.get_prev_text()?;
         self.tokens.push(token);
         let text = self.decode(&self.tokens[self.prev_index..])?;
@@ -39,7 +39,7 @@ impl<'a> TokenOutputStream<'a> {
         }
     }
 
-    pub fn clear(&mut self) {
+    pub(crate) fn clear(&mut self) {
         self.tokens.clear();
         self.prev_index = 0;
         self.current_index = 0;

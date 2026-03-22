@@ -1,10 +1,10 @@
 use candle_core::{Device, Tensor};
 use candle_transformers::generation::LogitsProcessor;
 use crate::{
-    Error, ModelWeights, KvCache,
-    settings::Settings,
+    Error, ModelWeights, settings::Settings,
 };
 use crate::utils::token_output_stream::TokenOutputStream;
+use crate::utils::kv_cache::KvCache;
 
 #[non_exhaustive]
 pub struct Generation<'a, 'b, M: ModelWeights> {

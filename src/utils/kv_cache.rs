@@ -3,7 +3,7 @@ use candle_core::{Tensor, Error};
 pub(crate) type KvCache = ConcatKvCache;
 
 #[derive(Debug, Clone)]
-pub struct ConcatKvCache {
+pub(crate) struct ConcatKvCache {
     k: Option<Tensor>,
     v: Option<Tensor>,
     dim: usize,
@@ -25,7 +25,7 @@ impl ConcatKvCache {
     /// // For standard transformer attention: [B, H, S, D]
     /// let cache = ConcatKvCache::new(2);
     /// ```
-    pub fn new(dim: usize) -> Self {
+    pub(crate) fn new(dim: usize) -> Self {
         Self {
             k: None,
             v: None,
@@ -36,12 +36,12 @@ impl ConcatKvCache {
         }
     }
 
-    pub fn set_rollback(&mut self) {
+    pub(crate) fn set_rollback(&mut self) {
         self.k_roll = self.k.clone();
         self.v_roll = self.v.clone();
     }
 
-    pub fn rollback(&mut self) {
+    pub(crate) fn rollback(&mut self) {
         self.k = self.k_roll.clone();
         self.v = self.v_roll.clone();
     }
@@ -54,7 +54,7 @@ impl ConcatKvCache {
     /// Get current sequence length in the cache
     ///
     /// Returns 0 if the cache is empty.
-    pub fn current_seq_len(&self) -> usize {
+    pub(crate) fn current_seq_len(&self) -> usize {
         self.k
             .as_ref()
             .and_then(|k| k.dims().get(self.dim).copied())
@@ -72,7 +72,7 @@ impl ConcatKvCache {
     /// # Returns
     /// Tuple of `(full_k, full_v)` containing all cached keys and values,
     /// including the newly appended data.
-    pub fn append(&mut self, k: &Tensor, v: &Tensor) -> Result<(Tensor, Tensor), Error> {
+    pub(crate) fn append(&mut self, k: &Tensor, v: &Tensor) -> Result<(Tensor, Tensor), Error> {
         // Ensure inputs are contiguous for optimal concatenation performance
         let k = k.contiguous()?;
         let v = v.contiguous()?;
@@ -99,7 +99,7 @@ impl ConcatKvCache {
         self.v = None;
     }
 
-    pub fn reset_all(&mut self) {
+    pub(crate) fn reset_all(&mut self) {
         self.clear_kv();
         self.clear_rollback();
     }

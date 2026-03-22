@@ -5,7 +5,7 @@ use candle_core::{DType, Device, Result, Tensor};
 use candle_nn::{Activation, Module};
 use std::io::{Read, Seek};
 use std::sync::Arc;
-use crate::{KvCache};
+use crate::utils::kv_cache::KvCache;
 
 pub(crate) struct Gguf<R: Read + Seek> {
     ct: gguf_file::Content,

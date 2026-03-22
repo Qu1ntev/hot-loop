@@ -1,5 +1,6 @@
 use candle_core::{Device, Result as CandleResult, Tensor};
-use crate::{Error, session::Session, KvCache};
+use crate::{Error, session::Session};
+use crate::utils::kv_cache::KvCache;
 use tokenizers::Tokenizer;
 
 #[derive(Clone, Copy)]

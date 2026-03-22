@@ -2,10 +2,9 @@ use candle_transformers::generation::{LogitsProcessor, Sampling};
 use candle_core::Tensor;
 use super::Generation;
 use crate::{
-    Error, ModelWeights, KvCache,
-    settings::{Settings, Seed},
-    Role
+    Error, ModelWeights, settings::{Settings, Seed}, Role
 };
+use crate::utils::kv_cache::KvCache;
 use crate::utils::token_output_stream::TokenOutputStream;
 
 #[non_exhaustive]

@@ -44,10 +44,6 @@ extern crate intel_mkl_src;
 extern crate accelerate_src;
 
 pub(crate) mod utils;
-pub(crate) use utils::{
-    kv_cache::KvCache
-};
-
 pub use candle_core::Device;
 
 pub mod models;
