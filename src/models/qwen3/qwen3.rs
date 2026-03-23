@@ -180,7 +180,7 @@ impl ModelWeights for Qwen3 {
         self.chat_template.assistant_start_template()
     }
     
-    fn eos_token(&self) -> u32 {
-        self.chat_template.eos_token()
+    fn eos_tokens(&self) -> Vec<u32> {
+        self.chat_template.eos_tokens()
     }
 }

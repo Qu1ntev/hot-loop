@@ -27,7 +27,7 @@ pub trait ModelWeights {
 
     fn fmt_prompt(&self, role: Role, text: &str) -> Result<Vec<u32>, Error>;
     fn assistant_start_template(&self) -> Vec<u32>;
-    fn eos_token(&self) -> u32;
+    fn eos_tokens(&self) -> Vec<u32>;
 }
 
 pub trait Model: ModelWeights {

@@ -1,9 +1,9 @@
 use candle_transformers::generation::{LogitsProcessor, Sampling};
 use super::Generation;
-use crate::{
-    Error, Model, settings::{Settings, Seed}
-};
-use crate::session::history::Message;
+use super::history::Message;
+use crate::Error;
+use crate::Model;
+use crate::settings::{Settings, Seed};
 use crate::utils::kv_cache::KvCache;
 use crate::utils::token_output_stream::TokenOutputStream;
 
@@ -12,7 +12,8 @@ pub struct Session<'model, M: Model> {
     model: &'model M, // read only
     settings: Settings,
     kv_cache: Vec<KvCache>,
-    tos: TokenOutputStream<'model>
+    tos: TokenOutputStream<'model>,
+    cached_tokens: Vec<u32>
 }
 
 impl<'model, M: Model> Session<'model, M> {
@@ -20,17 +21,34 @@ impl<'model, M: Model> Session<'model, M> {
         let settings = Settings::default();
         let kv_cache = model.create_kv_cache();
         let tos = TokenOutputStream::new(model.tokenizer());
+        let cached_tokens = Vec::new();
         
         Self {
             model,
             settings,
             kv_cache,
-            tos
+            tos,
+            cached_tokens
         }
     }
 
     pub fn generate(&mut self, messages: &[Message]) -> Result<Generation<'_, 'model, M>, Error> {
-        let mut tokens = self.message_tokens(messages)?;
+        let tokens = self.message_tokens(messages)?;
+
+        let cached_len = self.cached_tokens
+            .iter()
+            .zip(tokens.iter())
+            .take_while(|(a, b)| a == b)
+            .count();
+
+        println!("cached len: {}", cached_len);
+
+        self.truncate_cache(cached_len)?;
+        self.cached_tokens = tokens.clone();
+
+        println!("tokens len: {}", tokens.len());
+
+        let mut tokens = tokens[cached_len..].to_vec();
 
         let assistant_start_tokens = self.model.assistant_start_template();
         tokens.extend_from_slice(&assistant_start_tokens);
@@ -64,10 +82,11 @@ impl<'model, M: Model> Session<'model, M> {
             all_tokens: Vec::new(),
             parameters: self.settings,
             device: self.model.current_device(),
-            eos_token: self.model.eos_token(),
+            eos_tokens: self.model.eos_tokens(),
             logits_processor,
             tos: &mut self.tos,
-            kv_cache: &mut self.kv_cache
+            kv_cache: &mut self.kv_cache,
+            cached_tokens: &mut self.cached_tokens
         })
     }
 
@@ -80,6 +99,11 @@ impl<'model, M: Model> Session<'model, M> {
         self.settings = settings;
     }
 
+    pub fn warmup(&mut self, _messages: &[Message]) -> Result<(), Error> {
+        // warmup kv cache, can be used, for example, for a system prompt
+        Ok(())
+    }
+
     fn truncate_cache(&mut self, index: usize) -> Result<(), Error> {
         for cache in &mut self.kv_cache {
             cache.truncate(index)?;
@@ -88,6 +112,8 @@ impl<'model, M: Model> Session<'model, M> {
     }
 
     pub fn clear_cache(&mut self) {
+        self.cached_tokens.clear();
+
         for cache in &mut self.kv_cache {
             cache.clear();
         }
@@ -101,6 +127,7 @@ impl<'model, M: Model> Session<'model, M> {
                 message.role,
                 &message.text
             )?;
+            println!("{:?} tokens len: {}", message.role, tk.len());
             tokens.extend_from_slice(&tk);
         }
         
