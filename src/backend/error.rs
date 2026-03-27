@@ -9,5 +9,5 @@ pub enum Error {
     Tokenizers(#[from] tokenizers::Error),
 
     #[error("UnwrapNone: {0}")]
-    UnwrapNone(String),
+    MissingValue(String),
 }

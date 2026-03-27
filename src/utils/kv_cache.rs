@@ -1,7 +1,53 @@
+use std::ops::{Deref, DerefMut};
 use candle_core::{Tensor, Error};
 
-pub(crate) type KvCache = ConcatKvCache;
+#[doc(hidden)]
+pub struct KvCache {
+    kv_cache: Vec<ConcatKvCache>
+}
 
+impl KvCache {
+    pub fn new(len: usize, dim: usize) -> Self {
+        let mut kv_cache = Vec::with_capacity(len);
+        for _ in 0..len { kv_cache.push(ConcatKvCache::new(dim)); }
+        Self { kv_cache }
+    }
+
+    pub fn clear(&mut self) {
+        for cache in &mut self.kv_cache {
+            cache.clear()
+        }
+    }
+
+    pub fn truncate(&mut self, index: usize) -> Result<(), Error> {
+        for cache in &mut self.kv_cache {
+            cache.truncate(index)?;
+        }
+        Ok(())
+    }
+
+    pub fn current_pos(&self) -> Option<usize> {
+        match self.kv_cache.get(0) {
+            Some(cache) => Some(cache.current_seq_len()),
+            None => None,
+        }
+    }
+}
+
+impl Deref for KvCache {
+    type Target = Vec<ConcatKvCache>;
+    fn deref(&self) -> &Self::Target {
+        &self.kv_cache
+    }
+}
+
+impl DerefMut for KvCache {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.kv_cache
+    }
+}
+
+#[doc(hidden)]
 pub struct ConcatKvCache {
     k: Option<Tensor>,
     v: Option<Tensor>,
@@ -21,7 +67,7 @@ impl ConcatKvCache {
     /// // For standard transformer attention: [B, H, S, D]
     /// let cache = ConcatKvCache::new(2);
     /// ```
-    pub(crate) fn new(dim: usize) -> Self {
+    pub fn new(dim: usize) -> Self {
         Self {
             k: None,
             v: None,
@@ -32,7 +78,7 @@ impl ConcatKvCache {
     /// Get current sequence length in the cache
     ///
     /// Returns 0 if the cache is empty.
-    pub(crate) fn current_seq_len(&self) -> usize {
+    pub fn current_seq_len(&self) -> usize {
         self.k
             .as_ref()
             .and_then(|k| k.dims().get(self.dim).copied())
@@ -50,19 +96,16 @@ impl ConcatKvCache {
     /// # Returns
     /// Tuple of `(full_k, full_v)` containing all cached keys and values,
     /// including the newly appended data.
-    pub(crate) fn append(&mut self, k: &Tensor, v: &Tensor) -> Result<(Tensor, Tensor), Error> {
-        let k = k.contiguous()?;
-        let v = v.contiguous()?;
+    pub fn append(&mut self, k: &Tensor, v: &Tensor) -> Result<(Tensor, Tensor), Error> {
+        let mut k = k.contiguous()?;
+        let mut v = v.contiguous()?;
 
-        let k = match &self.k {
-            None => k,
-            Some(k_cache) => Tensor::cat(&[k_cache, &k], self.dim)?
-        };
-
-        let v = match &self.v {
-            None => v,
-            Some(v_cache) => Tensor::cat(&[v_cache, &v], self.dim)?
-        };
+        if let Some(k_cache) = &self.k {
+            k = Tensor::cat(&[k_cache, &k], self.dim)?;
+        }
+        if let Some(v_cache) = &self.v {
+            v = Tensor::cat(&[v_cache, &v], self.dim)?;
+        }
 
         self.k = Some(k.clone());
         self.v = Some(v.clone());
@@ -71,7 +114,7 @@ impl ConcatKvCache {
     }
 
     /// truncate kv_cache: cache[..index]
-    pub(crate) fn truncate(&mut self, index: usize) -> Result<(), Error> {
+    pub fn truncate(&mut self, index: usize) -> Result<(), Error> {
         let current = self.current_seq_len();
 
         if index >= current {
@@ -94,7 +137,7 @@ impl ConcatKvCache {
     }
 
     /// Reset the cache (clear all stored keys and values)
-    pub(crate) fn clear(&mut self) {
+    pub fn clear(&mut self) {
         self.k = None;
         self.v = None;
     }
