@@ -19,24 +19,45 @@ impl KvCache {
     /// Clear all stored keys and values
     pub fn clear(&mut self) {
         for cache in &mut self.kv_cache {
-            cache.clear()
+            cache.k = None;
+            cache.v = None;
         }
     }
 
     /// Truncate: KvCache[..index]
     pub fn truncate(&mut self, index: usize) -> Result<(), Error> {
+        let current = self.current_pos();
+
+        if index >= current {
+            return Ok(());
+        }
+
+        if index == 0 {
+            self.clear();
+            return Ok(());
+        }
+
         for cache in &mut self.kv_cache {
-            cache.truncate(index)?;
+            if let Some(k_cache) = &cache.k {
+                cache.k = Some(k_cache.narrow(cache.dim, 0, index)?.contiguous()?);
+            }
+            if let Some(v_cache) = &cache.v {
+                cache.v = Some(v_cache.narrow(cache.dim, 0, index)?.contiguous()?);
+            }
         }
         Ok(())
     }
 
     /// Get current sequence length in the cache.
     /// Returns 0 if the cache is empty.
-    pub fn current_pos(&self) -> Option<usize> {
+    pub fn current_pos(&self) -> usize {
         match self.kv_cache.get(0) {
-            Some(cache) => Some(cache.current_seq_len()),
-            None => None,
+            Some(cache) => {
+                cache.k.as_ref()
+                    .and_then(|k| k.dims().get(cache.dim).copied())
+                    .unwrap_or(0)
+            },
+            None => 0,
         }
     }
 }
@@ -56,9 +77,9 @@ impl DerefMut for KvCache {
 
 #[doc(hidden)]
 pub struct ConcatKvCache {
-    k: Option<Tensor>,
-    v: Option<Tensor>,
-    dim: usize,
+    pub(super) k: Option<Tensor>,
+    pub(super) v: Option<Tensor>,
+    pub(super) dim: usize,
 }
 
 impl ConcatKvCache {
@@ -68,13 +89,6 @@ impl ConcatKvCache {
             v: None,
             dim,
         }
-    }
-
-    fn current_seq_len(&self) -> usize {
-        self.k
-            .as_ref()
-            .and_then(|k| k.dims().get(self.dim).copied())
-            .unwrap_or(0)
     }
 
     /// Append key and value tensors to the cache.
@@ -102,32 +116,5 @@ impl ConcatKvCache {
         self.v = Some(v.clone());
 
         Ok((k, v))
-    }
-
-    fn truncate(&mut self, index: usize) -> Result<(), Error> {
-        let current = self.current_seq_len();
-
-        if index >= current {
-            return Ok(());
-        }
-
-        if index == 0 {
-            self.clear();
-            return Ok(());
-        }
-
-        if let Some(k_cache) = &self.k {
-            self.k = Some(k_cache.narrow(self.dim, 0, index)?.contiguous()?);
-        }
-        if let Some(v_cache) = &self.v {
-            self.v = Some(v_cache.narrow(self.dim, 0, index)?.contiguous()?);
-        }
-
-        Ok(())
-    }
-
-    fn clear(&mut self) {
-        self.k = None;
-        self.v = None;
     }
 }

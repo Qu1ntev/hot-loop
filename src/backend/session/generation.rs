@@ -28,8 +28,7 @@ impl<'session, 'model, M: Model> Generation<'session, 'model, M> {
                 return Ok(None);
             }
 
-            let current_pos = self.kv_cache.current_pos()
-                .ok_or_else(|| Error::MissingValue("kv_cache_pos is none".into()))?;
+            let current_pos = self.kv_cache.current_pos();
 
             let input = if self.index == 0 {
                 Tensor::new(self.tokens.as_slice(), &self.device)?.unsqueeze(0)?

@@ -103,8 +103,7 @@ impl<'model, M: Model> Session<'model, M> {
         let input = Tensor::new(sys_tokens, self.model.device())?.unsqueeze(0)?;
         let _ = self.model.forward(&input, 0, &mut self.kv_cache)?;
 
-        let current_pos = self.kv_cache.current_pos()
-            .ok_or_else(|| Error::MissingValue("kv_cache_pos is none".into()))?;
+        let current_pos = self.kv_cache.current_pos();
 
         self.system_prompt_pos = Some(current_pos);
 
