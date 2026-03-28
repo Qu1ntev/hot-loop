@@ -3,6 +3,7 @@ use crate::{session::Session, Error};
 use crate::utils::kv_cache::KvCache;
 use crate::session::history::Role;
 use tokenizers::Tokenizer;
+use std::sync::Arc;
 
 #[doc(hidden)]
 pub trait ModelWeights {
@@ -10,7 +11,7 @@ pub trait ModelWeights {
 
     fn layers_len(&self) -> usize;
 
-    fn tokenizer(&self) -> &Tokenizer;
+    fn tokenizer(&self) -> Arc<Tokenizer>;
 
     fn device(&self) -> &Device;
 
@@ -20,7 +21,7 @@ pub trait ModelWeights {
 }
 
 pub trait Model: ModelWeights {
-    fn new_session(&self) -> Session<'_, Self>
+    fn new_session(self: Arc<Self>) -> Session<Self>
     where
         Self: Sized
     {

@@ -1,18 +1,18 @@
 use candle_core::Result;
 use tokenizers::Tokenizer;
+use std::sync::Arc;
 
 const REPL: char = '\u{FFFD}';
 
-#[derive(Clone)]
-pub(crate) struct TokenOutputStream<'a> {
-    tokenizer: &'a Tokenizer,
+pub(crate) struct TokenOutputStream {
+    tokenizer: Arc<Tokenizer>,
     tokens: Vec<u32>,
     prev_index: usize,
     current_index: usize,
 }
 
-impl<'a> TokenOutputStream<'a> {
-    pub(crate) fn new(tokenizer: &'a Tokenizer) -> Self {
+impl TokenOutputStream {
+    pub(crate) fn new(tokenizer: Arc<Tokenizer>) -> Self {
         Self {
             tokenizer,
             tokens: Vec::new(),

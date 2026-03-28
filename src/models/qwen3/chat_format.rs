@@ -1,6 +1,7 @@
 use tokenizers::Tokenizer;
 use crate::Error;
 use crate::session::history::Role;
+use std::sync::Arc;
 
 const IM_START: &str =  "<|im_start|>";
 const IM_END: &str =    "<|im_end|>";
@@ -10,7 +11,7 @@ const ASSISTANT: &str = "assistant";
 const NEW_LINE: &str =  "\n";
 
 pub(crate) struct ChatFormat {
-    tokenizer: Tokenizer,
+    tokenizer: Arc<Tokenizer>,
 
     im_start: u32,
     im_end: u32,
@@ -24,7 +25,7 @@ pub(crate) struct ChatFormat {
 
 impl ChatFormat {
     pub fn new(
-        tokenizer: Tokenizer
+        tokenizer: Arc<Tokenizer>
     ) -> Result<Self, Error> {
         let get = |text: &str| tokenizer.token_to_id(text)
             .ok_or_else(|| Error::MissingValue(format!("No token named: {text}")));
@@ -54,10 +55,6 @@ impl ChatFormat {
 
             new_line
         })
-    }
-
-    pub fn tokenizer(&self) -> &Tokenizer {
-        &self.tokenizer
     }
     
     /// ## output ids:

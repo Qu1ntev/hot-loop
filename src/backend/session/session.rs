@@ -7,18 +7,19 @@ use crate::Model;
 use crate::session::history::Role;
 use crate::utils::kv_cache::KvCache;
 use crate::utils::token_output_stream::TokenOutputStream;
+use std::sync::Arc;
 
 #[non_exhaustive]
-pub struct Session<'model, M: Model> {
-    model: &'model M, // read only
+pub struct Session<M: Model> {
+    model: Arc<M>, // воняет, ебись оно все в очко
     settings: Settings,
     kv_cache: KvCache,
-    tos: TokenOutputStream<'model>,
+    tos: TokenOutputStream,
     system_prompt_pos: Option<usize>,
 }
 
-impl<'model, M: Model> Session<'model, M> {
-    pub(crate) fn new(model: &'model M) -> Self {
+impl<M: Model> Session<M> {
+    pub(crate) fn new(model: Arc<M>) -> Self {
         let settings = Settings::default();
 
         let layers_len = model.layers_len();
@@ -35,7 +36,7 @@ impl<'model, M: Model> Session<'model, M> {
         }
     }
 
-    pub fn generate(&mut self, prompt: &str) -> Result<Generation<'_, 'model, M>, Error> {
+    pub fn generate(&mut self, prompt: &str) -> Result<Generation<'_, M>, Error> {
         let user_tokens = self.model.fmt_prompt(prompt, Role::User)?;
         let assistant_start_tokens = self.model.assistant_start_template();
 
@@ -68,10 +69,9 @@ impl<'model, M: Model> Session<'model, M> {
         };
 
         Ok(Generation::new(
-            self.model,
+            self.model.clone(),
             tokens,
             logits_processor,
-            self.model.device(),
             self.settings,
             &mut self.tos,
             &mut self.kv_cache,

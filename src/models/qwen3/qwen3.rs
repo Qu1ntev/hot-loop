@@ -25,6 +25,7 @@ pub struct Qwen3 {
     device: Device,
     dtype: DType,
     chat_format: ChatFormat,
+    tokenizer: Arc<Tokenizer>
 }
 
 impl Qwen3 {
@@ -38,7 +39,7 @@ impl Qwen3 {
         T: AsRef<[u8]>,
     {
         let ct = gguf_file::Content::read(model)?;
-        let tokenizer = Tokenizer::from_bytes(tokenizer)?;
+        let tokenizer = Arc::new(Tokenizer::from_bytes(tokenizer)?);
 
         let mut gg = Gguf::new("qwen3", &ct, model, &device);
 
@@ -93,7 +94,7 @@ impl Qwen3 {
 
         let lm_head = QMatMul::from_weights(lm_head_tensor.into())?;
 
-        let chat_format = ChatFormat::new(tokenizer)?;
+        let chat_format = ChatFormat::new(tokenizer.clone())?;
 
         Ok(Self {
             embed_tokens,
@@ -103,6 +104,7 @@ impl Qwen3 {
             device,
             dtype,
             chat_format,
+            tokenizer,
         })
     }
 }
@@ -131,8 +133,8 @@ impl ModelWeights for Qwen3 {
         self.layers.len()
     }
 
-    fn tokenizer(&self) -> &Tokenizer {
-        &self.chat_format.tokenizer()
+    fn tokenizer(&self) -> Arc<Tokenizer> {
+        self.tokenizer.clone()
     }
 
     fn device(&self) -> &Device {
