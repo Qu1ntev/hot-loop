@@ -19,7 +19,7 @@ use super::{
     }
 };
 
-#[derive(Clone)]
+#[non_exhaustive]
 pub struct Qwen3 {
     embed_tokens: Embedding,
     layers: Vec<LayerWeights>,
