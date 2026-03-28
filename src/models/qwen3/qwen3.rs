@@ -8,8 +8,7 @@ use std::sync::Arc;
 use crate::{ModelWeights, Error};
 use crate::utils::kv_cache::KvCache;
 use tokenizers::Tokenizer;
-use super::ChatTemplate;
-use crate::session::history::Role;
+use super::Qwen3Format;
 
 use super::{
     transformers::{
@@ -19,7 +18,7 @@ use super::{
     }
 };
 
-#[derive(Clone)]
+#[non_exhaustive]
 pub struct Qwen3 {
     embed_tokens: Embedding,
     layers: Vec<LayerWeights>,
@@ -27,7 +26,7 @@ pub struct Qwen3 {
     lm_head: QMatMul,
     device: Device,
     dtype: DType,
-    chat_template: ChatTemplate
+    chat_format: Qwen3Format
 }
 
 impl Qwen3 {
@@ -100,7 +99,7 @@ impl Qwen3 {
         };
         let lm_head = QMatMul::from_weights(lm_head_tensor.into())?;
 
-        let chat_template = ChatTemplate::new(tokenizer)?;
+        let chat_format = Qwen3Format::new(tokenizer)?;
 
         Ok(Self {
             embed_tokens,
@@ -109,7 +108,7 @@ impl Qwen3 {
             lm_head,
             device: device.clone(),
             dtype,
-            chat_template
+            chat_format
         })
     }
 
@@ -142,7 +141,9 @@ impl Qwen3 {
 }
 
 impl ModelWeights for Qwen3 {
-    fn forward(&self, input: &Tensor, offset: usize, kv_cache: &mut Vec<KvCache>) -> CandleResult<Tensor> {
+    type ChatFormat = Qwen3Format;
+    
+    fn forward(&self, input: &Tensor, offset: usize, kv_cache: &mut KvCache) -> CandleResult<Tensor> {
         let (b, l) = input.dims2()?;
         let mut h = self.embed_tokens.forward(input)?;
         let causal_mask = if l == 1 {
@@ -164,23 +165,11 @@ impl ModelWeights for Qwen3 {
         self.layers.len()
     }
 
-    fn tokenizer(&self) -> &Tokenizer {
-        &self.chat_template.tokenizer()
-    }
-
-    fn current_device(&self) -> &Device {
+    fn device(&self) -> &Device {
         &self.device
     }
-
-    fn fmt_prompt(&self, role: Role, text: &str) -> Result<Vec<u32>, Error> {
-        self.chat_template.fmt_prompt(role, text)
-    }
-
-    fn assistant_start_template(&self) -> Vec<u32> {
-        self.chat_template.assistant_start_template()
-    }
     
-    fn eos_tokens(&self) -> Vec<u32> {
-        self.chat_template.eos_tokens()
+    fn chat_format(&self) -> &Self::ChatFormat {
+        &self.chat_format
     }
 }

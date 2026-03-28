@@ -5,7 +5,7 @@ use candle_core::{DType, Device, Result, Tensor};
 use candle_nn::{Activation, Module};
 use std::io::{Read, Seek};
 use std::sync::Arc;
-use crate::utils::kv_cache::KvCache;
+use crate::utils::kv_cache::ConcatKvCache;
 
 pub(crate) struct Gguf<R: Read + Seek> {
     ct: gguf_file::Content,
@@ -126,7 +126,6 @@ struct AttentionWeights {
     num_kv_groups: usize,
     head_dim: usize,
     rotary_emb: Arc<RotaryEmbedding>,
-    // kv_cache: ConcatKvCache,
 }
 
 impl AttentionWeights {
@@ -149,8 +148,6 @@ impl AttentionWeights {
         let q_norm = gg.rms_norm(&format!("{prefix}.attn_q_norm.weight"), rms_norm_eps)?;
         let k_norm = gg.rms_norm(&format!("{prefix}.attn_k_norm.weight"), rms_norm_eps)?;
 
-        // let kv_cache = ConcatKvCache::new(2);
-
         Ok(Self {
             q_proj,
             k_proj,
@@ -163,11 +160,10 @@ impl AttentionWeights {
             num_kv_groups,
             head_dim,
             rotary_emb,
-            // kv_cache,
         })
     }
 
-    fn forward(&self, x: &Tensor, attn_mask: Option<&Tensor>, offset: usize, kv_cache: &mut KvCache) -> Result<Tensor> {
+    fn forward(&self, x: &Tensor, attn_mask: Option<&Tensor>, offset: usize, kv_cache: &mut ConcatKvCache) -> Result<Tensor> {
         let (b, l, _) = x.dims3()?;
 
         let q = self.q_proj.forward(x)?;
@@ -260,7 +256,7 @@ impl LayerWeights {
         })
     }
 
-    pub fn forward(&self, x: &Tensor, mask: Option<&Tensor>, offset: usize, kv_cache: &mut KvCache) -> Result<Tensor> {
+    pub fn forward(&self, x: &Tensor, mask: Option<&Tensor>, offset: usize, kv_cache: &mut ConcatKvCache) -> Result<Tensor> {
         let h = self.ln1.forward(x)?;
         let h = self.self_attn.forward(&h, mask, offset, kv_cache)?;
         let x = (x + h)?;

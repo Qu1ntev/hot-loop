@@ -1,4 +1,4 @@
 pub mod qwen3;
 mod transformers;
-mod chat_template;
-use chat_template::ChatTemplate;
+mod chat_format;
+use chat_format::Qwen3Format;
