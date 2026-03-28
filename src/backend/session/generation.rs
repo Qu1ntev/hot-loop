@@ -31,14 +31,13 @@ impl<'session, 'model, M: Model> Generation<'session, 'model, M> {
             let current_pos = self.kv_cache.current_pos()
                 .ok_or_else(|| Error::MissingValue("kv_cache_pos is none".into()))?;
 
-            let logits = if self.index == 0 {
-                let input = Tensor::new(self.tokens.as_slice(), &self.device)?.unsqueeze(0)?;
-                self.model.forward(&input, current_pos, &mut self.kv_cache)?
+            let input = if self.index == 0 {
+                Tensor::new(self.tokens.as_slice(), &self.device)?.unsqueeze(0)?
             } else {
-                let input = Tensor::new(&[self.next_token], self.device)?.unsqueeze(0)?;
-                self.model.forward(&input, current_pos, &mut self.kv_cache)?
+                Tensor::new(&[self.next_token], self.device)?.unsqueeze(0)?
             };
 
+            let logits = self.model.forward(&input, current_pos, &mut self.kv_cache)?;
             let logits = logits.squeeze(0)?;
 
             let logits = if self.parameters.repeat_penalty == 1. {
