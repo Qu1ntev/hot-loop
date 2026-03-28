@@ -8,30 +8,59 @@ use crate::utils::kv_cache::KvCache;
 
 #[non_exhaustive]
 pub struct Generation<'session, 'model, M: Model> {
-    pub(crate) model: &'model M,
-    pub(crate) index: usize,
-    pub(crate) next_token: u32,
-    pub(crate) tokens: Vec<u32>,
-    pub(crate) all_tokens: Vec<u32>,
-    pub(crate) parameters: Settings,
-    pub(crate) device: &'model Device,
-    pub(crate) eos_token: u32,
-    pub(crate) logits_processor: LogitsProcessor,
-    pub(crate) tos: &'session mut TokenOutputStream<'model>,
-    pub(crate) kv_cache: &'session mut KvCache
+    model: &'model M,
+    index: usize,
+    next_token: u32,
+    tokens_prefill: Option<Vec<u32>>,
+    all_tokens: Vec<u32>,
+    settings: Settings,
+    device: &'model Device,
+    eos_token: u32,
+    logits_processor: LogitsProcessor,
+    tos: &'session mut TokenOutputStream<'model>,
+    kv_cache: &'session mut KvCache
 }
 
 impl<'session, 'model, M: Model> Generation<'session, 'model, M> {
+    pub(crate) fn new(
+        model: &'model M,
+        tokens_prefill: Vec<u32>,
+        logits_processor: LogitsProcessor,
+        device: &'model Device,
+        settings: Settings,
+        tos: &'session mut TokenOutputStream<'model>,
+        kv_cache: &'session mut KvCache,
+        eos_token: u32,
+    ) -> Self {
+        Self {
+            model,
+            index: 0,
+            next_token: 0,
+            all_tokens: Vec::new(),
+            tokens_prefill: Some(tokens_prefill),
+            logits_processor,
+            device,
+            settings,
+            tos,
+            kv_cache,
+            eos_token,
+        }
+    }
+
     pub fn next_chunk(&mut self) -> Result<Option<String>, Error> {
         loop {
-            if self.parameters.sample_len <= self.index || self.next_token == self.eos_token {
+            if self.settings.sample_len <= self.index || self.next_token == self.eos_token {
                 return Ok(None);
             }
 
             let current_pos = self.kv_cache.current_pos();
 
-            let input = if self.index == 0 {
-                Tensor::new(self.tokens.as_slice(), &self.device)?.unsqueeze(0)?
+            let input = if self.index == 0 &&
+                let Some(tokens_prefill) = self.tokens_prefill.as_ref() {
+                let input = Tensor::new(tokens_prefill.as_slice(), &self.device)?.unsqueeze(0)?;
+                self.tokens_prefill = None;
+                input
+
             } else {
                 Tensor::new(&[self.next_token], self.device)?.unsqueeze(0)?
             };
@@ -39,13 +68,13 @@ impl<'session, 'model, M: Model> Generation<'session, 'model, M> {
             let logits = self.model.forward(&input, current_pos, &mut self.kv_cache)?;
             let logits = logits.squeeze(0)?;
 
-            let logits = if self.parameters.repeat_penalty == 1. {
+            let logits = if self.settings.repeat_penalty == 1. {
                 logits
             } else {
-                let start_at = self.all_tokens.len().saturating_sub(self.parameters.repeat_last_n);
+                let start_at = self.all_tokens.len().saturating_sub(self.settings.repeat_last_n);
                 candle_transformers::utils::apply_repeat_penalty(
                     &logits,
-                    self.parameters.repeat_penalty,
+                    self.settings.repeat_penalty,
                     &self.all_tokens[start_at..],
                 )?
             };

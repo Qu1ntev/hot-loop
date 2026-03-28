@@ -67,19 +67,16 @@ impl<'model, M: Model> Session<'model, M> {
             LogitsProcessor::from_sampling(seed, sampling)
         };
 
-        Ok(Generation {
-            model: self.model,
-            index: 0,
-            next_token: 0,
+        Ok(Generation::new(
+            self.model,
             tokens,
-            all_tokens: Vec::new(),
-            parameters: self.settings,
-            device: self.model.device(),
-            eos_token: self.model.eos_token(),
             logits_processor,
-            tos: &mut self.tos,
-            kv_cache: &mut self.kv_cache
-        })
+            self.model.device(),
+            self.settings,
+            &mut self.tos,
+            &mut self.kv_cache,
+            self.model.eos_token(),
+        ))
     }
 
     pub fn with_settings(mut self, settings: Settings) -> Self {
