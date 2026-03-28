@@ -142,7 +142,7 @@ impl Qwen3 {
 }
 
 impl ModelWeights for Qwen3 {
-    fn forward(&self, input: &Tensor, offset: usize, kv_cache: &mut Vec<KvCache>) -> CandleResult<Tensor> {
+    fn forward(&self, input: &Tensor, offset: usize, kv_cache: &mut KvCache) -> CandleResult<Tensor> {
         let (b, l) = input.dims2()?;
         let mut h = self.embed_tokens.forward(input)?;
         let causal_mask = if l == 1 {
@@ -168,7 +168,7 @@ impl ModelWeights for Qwen3 {
         &self.chat_template.tokenizer()
     }
 
-    fn current_device(&self) -> &Device {
+    fn device(&self) -> &Device {
         &self.device
     }
 

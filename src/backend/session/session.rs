@@ -12,21 +12,26 @@ use crate::utils::token_output_stream::TokenOutputStream;
 pub struct Session<'model, M: Model> {
     model: &'model M, // read only
     settings: Settings,
-    kv_cache: Vec<KvCache>,
-    tos: TokenOutputStream<'model>
+    kv_cache: KvCache,
+    tos: TokenOutputStream<'model>,
+    system_prompt_pos: Option<usize>,
 }
 
 impl<'model, M: Model> Session<'model, M> {
     pub(crate) fn new(model: &'model M) -> Self {
         let settings = Settings::default();
-        let kv_cache = model.create_kv_cache();
+
+        let layers_len = model.layers_len();
+        let kv_cache = KvCache::new(layers_len, 2);
+
         let tos = TokenOutputStream::new(model.tokenizer());
         
         Self {
             model,
             settings,
             kv_cache,
-            tos
+            tos,
+            system_prompt_pos: None,
         }
     }
 
@@ -69,7 +74,7 @@ impl<'model, M: Model> Session<'model, M> {
             tokens,
             all_tokens: Vec::new(),
             parameters: self.settings,
-            device: self.model.current_device(),
+            device: self.model.device(),
             eos_token: self.model.eos_token(),
             logits_processor,
             tos: &mut self.tos,
@@ -92,41 +97,29 @@ impl<'model, M: Model> Session<'model, M> {
     }
 
     pub fn set_system_prompt_and_clear_history(&mut self, system_prompt: &str) -> Result<(), Error> {
-        self.reset_all_cache();
+        self.kv_cache.clear();
 
         let sys_tokens = self.model.fmt_prompt(system_prompt, Role::System)?;
-
-        let input = Tensor::new(sys_tokens, self.model.current_device())?.unsqueeze(0)?;
+        let input = Tensor::new(sys_tokens, self.model.device())?.unsqueeze(0)?;
         let _ = self.model.forward(&input, 0, &mut self.kv_cache)?;
 
-        self.set_cache_rollback();
+        let current_pos = self.kv_cache.current_pos()
+            .ok_or_else(|| Error::MissingValue("kv_cache_pos is none".into()))?;
+
+        self.system_prompt_pos = Some(current_pos);
 
         Ok(())
     }
 
-    pub fn clear_history(&mut self) {
-        self.cache_rollback();
+    pub fn clear_history(&mut self) -> Result<(), Error> {
+        match self.system_prompt_pos {
+            Some(pos) => self.kv_cache.truncate(pos)?,
+            None => self.kv_cache.clear()
+        }
+        Ok(())
     }
 
     pub fn clear_system_prompt_and_history(&mut self) {
-        self.reset_all_cache();
-    }
-
-    fn set_cache_rollback(&mut self) {
-        for cache in &mut self.kv_cache {
-            cache.set_rollback();
-        }
-    }
-
-    fn cache_rollback(&mut self) {
-        for cache in &mut self.kv_cache {
-            cache.rollback();
-        }
-    }
-
-    fn reset_all_cache(&mut self) {
-        for cache in &mut self.kv_cache {
-            cache.reset_all();
-        }
+        self.kv_cache.clear();
     }
 }

@@ -8,6 +8,6 @@ pub enum Error {
     #[error(transparent)]
     Tokenizers(#[from] tokenizers::Error),
 
-    #[error("UnwrapNone: {0}")]
-    UnwrapNone(String),
+    #[error("MissingValue: {0}")]
+    MissingValue(String),
 }

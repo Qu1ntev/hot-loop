@@ -5,7 +5,7 @@ use candle_core::{DType, Device, Result, Tensor};
 use candle_nn::{Activation, Module};
 use std::io::{Read, Seek};
 use std::sync::Arc;
-use crate::utils::kv_cache::KvCache;
+use crate::utils::kv_cache::ConcatKvCache;
 
 pub(crate) struct Gguf<R: Read + Seek> {
     ct: gguf_file::Content,
@@ -167,7 +167,7 @@ impl AttentionWeights {
         })
     }
 
-    fn forward(&self, x: &Tensor, attn_mask: Option<&Tensor>, offset: usize, kv_cache: &mut KvCache) -> Result<Tensor> {
+    fn forward(&self, x: &Tensor, attn_mask: Option<&Tensor>, offset: usize, kv_cache: &mut ConcatKvCache) -> Result<Tensor> {
         let (b, l, _) = x.dims3()?;
 
         let q = self.q_proj.forward(x)?;
@@ -260,7 +260,7 @@ impl LayerWeights {
         })
     }
 
-    pub fn forward(&self, x: &Tensor, mask: Option<&Tensor>, offset: usize, kv_cache: &mut KvCache) -> Result<Tensor> {
+    pub fn forward(&self, x: &Tensor, mask: Option<&Tensor>, offset: usize, kv_cache: &mut ConcatKvCache) -> Result<Tensor> {
         let h = self.ln1.forward(x)?;
         let h = self.self_attn.forward(&h, mask, offset, kv_cache)?;
         let x = (x + h)?;
