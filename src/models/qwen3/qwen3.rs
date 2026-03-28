@@ -10,15 +10,11 @@ use crate::utils::kv_cache::KvCache;
 use tokenizers::Tokenizer;
 use super::ChatTemplate;
 use crate::session::history::Role;
-use crate::models::models_core::model::ModelWeights;
-
-use super::{
-    transformers::{
-        LayerWeights,
-        Gguf,
-        RotaryEmbedding
-    }
-};
+use super::super::models_core::model::ModelWeights;
+use super::super::models_core::rotary_embedding::RotaryEmbedding;
+use super::super::models_core::mask::mask;
+use crate::utils::gguf::Gguf;
+use super::transformers::LayerWeights;
 
 #[non_exhaustive]
 pub struct Qwen3 {
@@ -35,30 +31,25 @@ impl Qwen3 {
     pub fn load<M, T>(
         model: &mut M,
         tokenizer: T,
-        device: &Device,
+        device: Device,
     ) -> Result<Self, Error>
     where
         M: Read + Seek,
         T: AsRef<[u8]>,
     {
         let ct = gguf_file::Content::read(model)?;
-
         let tokenizer = Tokenizer::from_bytes(tokenizer)?;
 
-        let mut gg = Gguf::new(ct, model, device.clone());
-        let md_get = |s: &str| match gg.metadata().get(s) {
-            None => candle_core::bail!("cannot find {s} in metadata"),
-            Some(v) => Ok(v),
-        };
+        let mut gg = Gguf::new("qwen3", &ct, model, &device);
 
-        let num_attention_heads = md_get("qwen3.attention.head_count")?.to_u32()? as usize;
-        let num_kv_heads = md_get("qwen3.attention.head_count_kv")?.to_u32()? as usize;
-        let head_dim = md_get("qwen3.attention.key_length")?.to_u32()? as usize;
-        let num_layers = md_get("qwen3.block_count")?.to_u32()? as usize;
-        let hidden_size = md_get("qwen3.embedding_length")?.to_u32()? as usize;
-        let max_position_embeddings = md_get("qwen3.context_length")?.to_u32()? as usize;
-        let rms_norm_eps = md_get("qwen3.attention.layer_norm_rms_epsilon")?.to_f32()? as f64;
-        let rope_freq_base = md_get("qwen3.rope.freq_base")?.to_f32()? as f64;
+        let num_attention_heads = gg.get_with_prefix("attention.head_count")?.to_u32()? as usize;
+        let num_kv_heads = gg.get_with_prefix("attention.head_count_kv")?.to_u32()? as usize;
+        let head_dim = gg.get_with_prefix("attention.key_length")?.to_u32()? as usize;
+        let num_layers = gg.get_with_prefix("block_count")?.to_u32()? as usize;
+        let hidden_size = gg.get_with_prefix("embedding_length")?.to_u32()? as usize;
+        let max_position_embeddings = gg.get_with_prefix("context_length")?.to_u32()? as usize;
+        let rms_norm_eps = gg.get_with_prefix("attention.layer_norm_rms_epsilon")?.to_f32()? as f64;
+        let rope_freq_base = gg.get_with_prefix("rope.freq_base")?.to_f32()? as f64;
 
         let dtype = match gg.metadata().get("general.dtype") {
             Some(v) => match v.to_u32() {
@@ -70,14 +61,14 @@ impl Qwen3 {
         };
 
         let embed_tensor = gg.tensor("token_embd.weight")?;
-        let embed_tokens = Embedding::new(embed_tensor.dequantize(device)?, hidden_size);
+        let embed_tokens = Embedding::new(embed_tensor.dequantize(&device)?, hidden_size);
 
         let rotary = Arc::new(RotaryEmbedding::new(
-            dtype,
             head_dim,
-            max_position_embeddings,
             rope_freq_base,
-            device,
+            max_position_embeddings,
+            dtype,
+            &device,
         )?);
 
         let mut layers = Vec::with_capacity(num_layers);
@@ -94,11 +85,12 @@ impl Qwen3 {
         }
 
         let norm = gg.rms_norm("output_norm.weight", rms_norm_eps)?;
-        // Load output projection tensor, falling back to tied embeddings like gemma3
+
         let lm_head_tensor = match gg.tensor("output.weight") {
             Ok(tensor) => tensor,
             Err(_) => gg.tensor("token_embd.weight")?,
         };
+
         let lm_head = QMatMul::from_weights(lm_head_tensor.into())?;
 
         let chat_template = ChatTemplate::new(tokenizer)?;
@@ -108,37 +100,10 @@ impl Qwen3 {
             layers,
             norm,
             lm_head,
-            device: device.clone(),
+            device,
             dtype,
             chat_template
         })
-    }
-
-    fn causal_mask(
-        &self,
-        b: usize,
-        tgt: usize,
-        offset: usize,
-        sw: Option<usize>,
-    ) -> CandleResult<Tensor> {
-        let minf = f32::NEG_INFINITY;
-        let mask: Vec<_> = (0..tgt)
-            .flat_map(|i| {
-                (0..(tgt + offset)).map(move |j| {
-                    let past_ok = j <= i + offset;
-                    let sw_ok = match sw {
-                        Some(w) => (i + offset) as i64 - j as i64 <= w as i64,
-                        None => true,
-                    };
-                    if past_ok && sw_ok {
-                        0.
-                    } else {
-                        minf
-                    }
-                })
-            })
-            .collect();
-        Tensor::from_slice(&mask, (b, 1, tgt, tgt + offset), &self.device)?.to_dtype(self.dtype)
     }
 }
 
@@ -146,10 +111,11 @@ impl ModelWeights for Qwen3 {
     fn forward(&self, input: &Tensor, offset: usize, kv_cache: &mut KvCache) -> CandleResult<Tensor> {
         let (b, l) = input.dims2()?;
         let mut h = self.embed_tokens.forward(input)?;
+        
         let causal_mask = if l == 1 {
             None
         } else {
-            Some(self.causal_mask(b, l, offset, None)?)
+            Some(mask(b, l, offset, None, self.dtype, &self.device)?)
         };
         
         for (layer, cache) in self.layers.iter().zip(kv_cache.iter_mut()) {

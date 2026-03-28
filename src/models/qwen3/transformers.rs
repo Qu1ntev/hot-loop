@@ -1,119 +1,14 @@
 use candle_transformers::models::with_tracing::QMatMul;
 use candle_transformers::{quantized_nn::RmsNorm, utils::repeat_kv};
-use candle_core::quantized::{gguf_file, QTensor};
-use candle_core::{DType, Device, Result, Tensor};
+use candle_core::{Result, Tensor};
 use candle_nn::{Activation, Module};
 use std::io::{Read, Seek};
 use std::sync::Arc;
 use crate::utils::kv_cache::ConcatKvCache;
+use super::super::models_core::rotary_embedding::RotaryEmbedding;
+use crate::utils::gguf::Gguf;
+use super::super::models_core::mlp::Mlp;
 
-pub(crate) struct Gguf<R: Read + Seek> {
-    ct: gguf_file::Content,
-    reader: R,
-    device: Device,
-}
-
-impl<R: Read + Seek> Gguf<R> {
-    pub fn new(ct: gguf_file::Content, reader: R, device: Device) -> Self {
-        Self { ct, reader, device }
-    }
-
-    pub fn qmatmul(&mut self, name: &str) -> Result<QMatMul> {
-        let ws = self.ct.tensor(&mut self.reader, name, &self.device)?;
-        QMatMul::from_weights(ws.into())
-    }
-
-    pub fn rms_norm(&mut self, name: &str, eps: f64) -> Result<RmsNorm> {
-        let ws = self.ct.tensor(&mut self.reader, name, &self.device)?;
-        RmsNorm::from_qtensor(ws, eps)
-    }
-
-    pub fn metadata(&self) -> &std::collections::HashMap<String, gguf_file::Value> {
-        &self.ct.metadata
-    }
-
-    pub fn tensor(&mut self, name: &str) -> Result<QTensor> {
-        self.ct.tensor(&mut self.reader, name, &self.device)
-    }
-}
-
-#[derive(Debug, Clone)]
-struct MlpWeights {
-    gate_proj: QMatMul,
-    up_proj: QMatMul,
-    down_proj: QMatMul,
-    act_fn: Activation,
-}
-
-impl MlpWeights {
-    fn new<R: Read + Seek>(gg: &mut Gguf<R>, prefix: &str) -> Result<Self> {
-        let gate_proj = gg.qmatmul(&format!("{prefix}.ffn_gate.weight"))?;
-        let up_proj = gg.qmatmul(&format!("{prefix}.ffn_up.weight"))?;
-        let down_proj = gg.qmatmul(&format!("{prefix}.ffn_down.weight"))?;
-        let act_fn = Activation::Silu;
-
-        Ok(Self {
-            gate_proj,
-            up_proj,
-            down_proj,
-            act_fn,
-        })
-    }
-}
-
-impl Module for MlpWeights {
-    fn forward(&self, x: &Tensor) -> Result<Tensor> {
-        let gate = self.gate_proj.forward(x)?.apply(&self.act_fn)?;
-        let up = self.up_proj.forward(x)?;
-        let gated = (gate * up)?;
-        self.down_proj.forward(&gated)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct RotaryEmbedding {
-    sin: Tensor,
-    cos: Tensor,
-}
-
-impl RotaryEmbedding {
-    pub fn new(
-        dtype: DType,
-        head_dim: usize,
-        max_position_embeddings: usize,
-        rope_theta: f64,
-        dev: &Device,
-    ) -> Result<Self> {
-        let dim = head_dim;
-        let max_seq_len = max_position_embeddings;
-        let inv_freq: Vec<_> = (0..dim)
-            .step_by(2)
-            .map(|i| 1f32 / rope_theta.powf(i as f64 / dim as f64) as f32)
-            .collect();
-        let inv_freq_len = inv_freq.len();
-        let inv_freq = Tensor::from_vec(inv_freq, (1, inv_freq_len), dev)?.to_dtype(dtype)?;
-        let t = Tensor::arange(0u32, max_seq_len as u32, dev)?
-            .to_dtype(dtype)?
-            .reshape((max_seq_len, 1))?;
-        let freqs = t.matmul(&inv_freq)?;
-        Ok(Self {
-            sin: freqs.sin()?,
-            cos: freqs.cos()?,
-        })
-    }
-
-    /// Apply RoPE (q, k shape: B x H x L x D)
-    pub fn apply(&self, q: &Tensor, k: &Tensor, offset: usize) -> Result<(Tensor, Tensor)> {
-        let (_, _, seq_len, _) = q.dims4()?;
-        let cos = self.cos.narrow(0, offset, seq_len)?.to_dtype(q.dtype())?;
-        let sin = self.sin.narrow(0, offset, seq_len)?.to_dtype(q.dtype())?;
-        let q_embed = candle_nn::rotary_emb::rope(&q.contiguous()?, &cos, &sin)?;
-        let k_embed = candle_nn::rotary_emb::rope(&k.contiguous()?, &cos, &sin)?;
-        Ok((q_embed, k_embed))
-    }
-}
-
-#[derive(Debug, Clone)]
 struct AttentionWeights {
     q_proj: QMatMul,
     k_proj: QMatMul,
@@ -126,7 +21,6 @@ struct AttentionWeights {
     num_kv_groups: usize,
     head_dim: usize,
     rotary_emb: Arc<RotaryEmbedding>,
-    // kv_cache: ConcatKvCache,
 }
 
 impl AttentionWeights {
@@ -149,8 +43,6 @@ impl AttentionWeights {
         let q_norm = gg.rms_norm(&format!("{prefix}.attn_q_norm.weight"), rms_norm_eps)?;
         let k_norm = gg.rms_norm(&format!("{prefix}.attn_k_norm.weight"), rms_norm_eps)?;
 
-        // let kv_cache = ConcatKvCache::new(2);
-
         Ok(Self {
             q_proj,
             k_proj,
@@ -163,7 +55,6 @@ impl AttentionWeights {
             num_kv_groups,
             head_dim,
             rotary_emb,
-            // kv_cache,
         })
     }
 
@@ -220,10 +111,9 @@ impl AttentionWeights {
     }
 }
 
-#[derive(Debug, Clone)]
 pub(crate) struct LayerWeights {
     self_attn: AttentionWeights,
-    mlp: MlpWeights,
+    mlp: Mlp,
     ln1: RmsNorm,
     ln2: RmsNorm,
 }
@@ -251,7 +141,7 @@ impl LayerWeights {
             rotary,
             &prefix,
         )?;
-        let mlp = MlpWeights::new(gg, &prefix)?;
+        let mlp = Mlp::new(gg, &prefix, Activation::Silu)?;
         Ok(Self {
             self_attn,
             mlp,

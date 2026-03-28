@@ -38,7 +38,7 @@ fn main() -> Result<(), Error> {
     let tokenizer_bytes = read("models/tokenizer.json").unwrap();
 
     // model read only
-    let model = Qwen3::load(&mut model_file, &tokenizer_bytes, &Device::Cpu)?;
+    let model = Qwen3::load(&mut model_file, &tokenizer_bytes, Device::Cpu)?;
 
     let mut session = model.new_session();
     // and more sessions!
@@ -114,7 +114,7 @@ fn main() -> Result<(), Error> {
     let mut model_file = File::open("Qwen3.gguf").unwrap();
     let tokenizer_bytes = read("tokenizer.json").unwrap();
 
-    let model = Qwen3::load(&mut model_file, &tokenizer_bytes, &Device::Cpu)?;
+    let model = Qwen3::load(&mut model_file, &tokenizer_bytes, Device::Cpu)?;
     func1(&model);
 
     let mut session: Session<Qwen3> = model.new_session();
@@ -146,7 +146,7 @@ fn main() -> Result<(), Error> {
     let mut model_file = File::open("Qwen3.gguf").unwrap();
     let tokenizer_bytes = read("tokenizer.json").unwrap();
 
-    let model = Qwen3::load(&mut model_file, &tokenizer_bytes, &Device::Cpu)?;
+    let model = Qwen3::load(&mut model_file, &tokenizer_bytes, Device::Cpu)?;
 
     let settings = Settings::default()
         .with_temperature(0.7)
@@ -186,7 +186,7 @@ fn main() -> Result<(), Error> {
     let mut model_file = File::open("Qwen3.gguf").unwrap();
     let tokenizer_bytes = read("tokenizer.json").unwrap();
 
-    let model = Qwen3::load(&mut model_file, &tokenizer_bytes, &Device::Cpu)?;
+    let model = Qwen3::load(&mut model_file, &tokenizer_bytes, Device::Cpu)?;
 
     let sys_prompt = "always answer in json!";
 
@@ -221,7 +221,7 @@ fn main() -> Result<(), Error> {
     let mut model_file = File::open("Qwen3.gguf").unwrap();
     let tokenizer_bytes = read("tokenizer.json").unwrap();
 
-    let model = Qwen3::load(&mut model_file, &tokenizer_bytes, &Device::Cpu)?;
+    let model = Qwen3::load(&mut model_file, &tokenizer_bytes, Device::Cpu)?;
     let mut session = model.new_session();
 
     let questions = ["Hello!", "what can you do?", "ok"];
