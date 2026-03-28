@@ -1,8 +1,8 @@
 use candle_core::{Device, Result as CandleResult, Tensor};
 use crate::{session::Session, Error};
 use crate::utils::kv_cache::KvCache;
-use tokenizers::Tokenizer;
 use crate::session::history::Role;
+use tokenizers::Tokenizer;
 
 #[doc(hidden)]
 pub trait ModelWeights {

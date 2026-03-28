@@ -1,9 +1,9 @@
 use candle_transformers::generation::{LogitsProcessor, Sampling};
 use candle_core::Tensor;
 use super::Generation;
-use crate::{
-    Error, Model, settings::{Settings, Seed}
-};
+use crate::settings::{Settings, Seed};
+use crate::Error;
+use crate::models::Model;
 use crate::session::history::Role;
 use crate::utils::kv_cache::KvCache;
 use crate::utils::token_output_stream::TokenOutputStream;
