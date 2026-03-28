@@ -4,6 +4,7 @@ use crate::utils::kv_cache::KvCache;
 use tokenizers::Tokenizer;
 use crate::session::history::Role;
 
+#[doc(hidden)]
 pub trait ModelWeights {
     fn forward(&self, input: &Tensor, offset: usize, kv_cache: &mut KvCache) -> CandleResult<Tensor>;
 
