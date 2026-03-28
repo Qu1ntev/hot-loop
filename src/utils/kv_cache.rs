@@ -83,7 +83,7 @@ pub struct ConcatKvCache {
 }
 
 impl ConcatKvCache {
-    fn new(dim: usize) -> Self {
+    pub(super) fn new(dim: usize) -> Self {
         Self {
             k: None,
             v: None,
