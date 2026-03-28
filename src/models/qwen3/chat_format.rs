@@ -9,7 +9,7 @@ const USER: &str =      "user";
 const ASSISTANT: &str = "assistant";
 const NEW_LINE: &str =  "\n";
 
-pub(crate) struct ChatTemplate {
+pub(crate) struct ChatFormat {
     tokenizer: Tokenizer,
 
     im_start: u32,
@@ -22,7 +22,7 @@ pub(crate) struct ChatTemplate {
     new_line: u32,
 }
 
-impl ChatTemplate {
+impl ChatFormat {
     pub fn new(
         tokenizer: Tokenizer
     ) -> Result<Self, Error> {

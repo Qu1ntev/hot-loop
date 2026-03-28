@@ -31,12 +31,12 @@ impl<'a, R: Read + Seek> Gguf<'a, R> {
     }
 
     pub fn qmatmul(&mut self, name: &str) -> Result<QMatMul> {
-        let ws = self.ct.tensor(&mut self.reader, name, &self.device)?;
+        let ws = self.tensor(name)?;
         QMatMul::from_weights(ws.into())
     }
 
     pub fn rms_norm(&mut self, name: &str, eps: f64) -> Result<RmsNorm> {
-        let ws = self.ct.tensor(&mut self.reader, name, &self.device)?;
+        let ws = self.tensor(name)?;
         RmsNorm::from_qtensor(ws, eps)
     }
 
@@ -45,6 +45,6 @@ impl<'a, R: Read + Seek> Gguf<'a, R> {
     }
 
     pub fn tensor(&mut self, name: &str) -> Result<QTensor> {
-        self.ct.tensor(&mut self.reader, name, &self.device)
+        self.ct.tensor(&mut self.reader, name, self.device)
     }
 }

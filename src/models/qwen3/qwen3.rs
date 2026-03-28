@@ -8,7 +8,7 @@ use std::sync::Arc;
 use crate::Error;
 use crate::utils::kv_cache::KvCache;
 use tokenizers::Tokenizer;
-use super::ChatTemplate;
+use super::ChatFormat;
 use crate::session::history::Role;
 use super::super::models_core::model::ModelWeights;
 use super::super::models_core::rotary_embedding::RotaryEmbedding;
@@ -24,7 +24,7 @@ pub struct Qwen3 {
     lm_head: QMatMul,
     device: Device,
     dtype: DType,
-    chat_template: ChatTemplate
+    chat_format: ChatFormat,
 }
 
 impl Qwen3 {
@@ -93,7 +93,7 @@ impl Qwen3 {
 
         let lm_head = QMatMul::from_weights(lm_head_tensor.into())?;
 
-        let chat_template = ChatTemplate::new(tokenizer)?;
+        let chat_format = ChatFormat::new(tokenizer)?;
 
         Ok(Self {
             embed_tokens,
@@ -102,7 +102,7 @@ impl Qwen3 {
             lm_head,
             device,
             dtype,
-            chat_template
+            chat_format,
         })
     }
 }
@@ -132,7 +132,7 @@ impl ModelWeights for Qwen3 {
     }
 
     fn tokenizer(&self) -> &Tokenizer {
-        &self.chat_template.tokenizer()
+        &self.chat_format.tokenizer()
     }
 
     fn device(&self) -> &Device {
@@ -140,14 +140,14 @@ impl ModelWeights for Qwen3 {
     }
 
     fn fmt_prompt(&self, prompt: &str, role: Role) -> Result<Vec<u32>, Error> {
-        self.chat_template.fmt_prompt(prompt, role)
+        self.chat_format.fmt_prompt(prompt, role)
     }
 
     fn assistant_start_template(&self) -> Vec<u32> {
-        self.chat_template.assistant_start_template()
+        self.chat_format.assistant_start_template()
     }
     
     fn eos_token(&self) -> u32 {
-        self.chat_template.eos_token()
+        self.chat_format.eos_token()
     }
 }
