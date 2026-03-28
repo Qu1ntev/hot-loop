@@ -2,7 +2,7 @@ use candle_core::{Device, Tensor};
 use candle_transformers::generation::LogitsProcessor;
 use crate::settings::Settings;
 use crate::Error;
-use crate::models::Model;
+use crate::Model;
 use crate::utils::token_output_stream::TokenOutputStream;
 use crate::utils::kv_cache::KvCache;
 

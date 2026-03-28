@@ -10,6 +10,9 @@ pub(crate) mod utils;
 pub use candle_core::Device;
 
 pub mod models;
+pub use models::{
+    models_core::model::Model,
+};
 
 pub(crate) mod backend;
 pub use backend::{
