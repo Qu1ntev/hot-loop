@@ -9,7 +9,6 @@ const USER: &str =      "user";
 const ASSISTANT: &str = "assistant";
 const NEW_LINE: &str =  "\n";
 
-#[derive(Clone)]
 pub(crate) struct ChatTemplate {
     tokenizer: Tokenizer,
 
@@ -28,7 +27,7 @@ impl ChatTemplate {
         tokenizer: Tokenizer
     ) -> Result<Self, Error> {
         let get = |text: &str| tokenizer.token_to_id(text)
-            .ok_or_else(|| Error::MissingValue("No token named".into()));
+            .ok_or_else(|| Error::MissingValue(format!("No token named: {text}")));
 
         let im_start =  get(IM_START)?;
         let im_end =    get(IM_END)?;
@@ -41,7 +40,7 @@ impl ChatTemplate {
             .encode(NEW_LINE, false)?
             .get_ids()
             .get(0)
-            .ok_or_else(|| Error::MissingValue("No token named".into()))?;
+            .ok_or_else(|| Error::MissingValue("No token named \\n".into()))?;
 
         Ok(Self {
             tokenizer,
