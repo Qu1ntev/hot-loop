@@ -240,3 +240,63 @@ fn main() -> Result<(), Error> {
 ```
 
 ---
+
+## Thread Safety
+### Parallelism Generation in different independent sessions
+
+```rust
+use std::fs::{File, read};
+use std::thread;
+use hot_loop::{
+    Model,
+    models::{Qwen3},
+    session::Session,
+    Device,
+    Error,
+};
+
+fn generate<M: Model>(mut session: Session<M>, prompt: &str) -> Result<String, Error> {
+    let mut answer = String::new();
+    let mut generate = session.generate(prompt)?;
+
+    while let Some(chunk) = generate.next_chunk()? {
+        answer.push_str(&chunk);
+    }
+    Ok(answer)
+}
+
+// one question for one thread
+const QUESTIONS: [&str; 4] = [
+    "hello!",
+    "what can you do?",
+    "what is the book war and peace about?",
+    "make a plan for your trip to Shanghai"
+];
+
+fn main() -> Result<(), Error> {
+    let mut model_file = File::open("models/Qwen3-4B-it-Q4_K_M.gguf").unwrap();
+    let tokenizer_bytes = read("models/tokenizer.json").unwrap();
+
+    let model = Qwen3::load(&mut model_file, &tokenizer_bytes, Device::Cpu)?;
+
+    let mut handles = Vec::new();
+
+    for prompt in QUESTIONS {
+        let session = model.new_session();
+
+        let handle = thread::spawn(move || {
+            generate(session, prompt)
+        });
+        handles.push(handle);
+    }
+
+    for handle in handles {
+        let answer = handle.join().unwrap()?;
+        println!("{answer}");
+    }
+
+    Ok(())
+}
+```
+
+---
