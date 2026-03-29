@@ -17,15 +17,8 @@ use crate::utils::gguf::Gguf;
 use super::transformers::LayerWeights;
 
 #[non_exhaustive]
-pub struct Qwen3 {
-    embed_tokens: Embedding,
-    layers: Vec<LayerWeights>,
-    norm: RmsNorm,
-    lm_head: QMatMul,
-    device: Device,
-    dtype: DType,
-    chat_format: ChatFormat,
-}
+#[derive(Clone)]
+pub struct Qwen3(Arc<Qwen3Inner>);
 
 impl Qwen3 {
     pub fn load<M, T>(
@@ -37,8 +30,64 @@ impl Qwen3 {
         M: Read + Seek,
         T: AsRef<[u8]>,
     {
+        let model = Qwen3Inner::load(model, tokenizer, device)?;
+        Ok(Self(Arc::new(model)))
+    }
+}
+
+impl ModelWeights for Qwen3 {
+    fn forward(&self, input: &Tensor, offset: usize, kv_cache: &mut KvCache) -> CandleResult<Tensor> {
+        self.0.forward(input, offset, kv_cache)
+    }
+
+    fn layers_len(&self) -> usize {
+        self.0.layers_len()
+    }
+
+    fn tokenizer(&self) -> Arc<Tokenizer> {
+        self.0.tokenizer()
+    }
+
+    fn device(&self) -> &Device {
+        &self.0.device()
+    }
+
+    fn fmt_prompt(&self, prompt: &str, role: Role) -> Result<Vec<u32>, Error> {
+        self.0.fmt_prompt(prompt, role)
+    }
+
+    fn assistant_start_template(&self) -> Vec<u32> {
+        self.0.assistant_start_template()
+    }
+
+    fn eos_token(&self) -> u32 {
+        self.0.eos_token()
+    }
+}
+
+struct Qwen3Inner {
+    embed_tokens: Embedding,
+    layers: Vec<LayerWeights>,
+    norm: RmsNorm,
+    lm_head: QMatMul,
+    device: Device,
+    dtype: DType,
+    chat_format: ChatFormat,
+    tokenizer: Arc<Tokenizer>,
+}
+
+impl Qwen3Inner {
+    fn load<M, T>(
+        model: &mut M,
+        tokenizer: T,
+        device: Device,
+    ) -> Result<Self, Error>
+    where
+        M: Read + Seek,
+        T: AsRef<[u8]>,
+    {
         let ct = gguf_file::Content::read(model)?;
-        let tokenizer = Tokenizer::from_bytes(tokenizer)?;
+        let tokenizer = Arc::new(Tokenizer::from_bytes(tokenizer)?);
 
         let mut gg = Gguf::new("qwen3", &ct, model, &device);
 
@@ -93,7 +142,7 @@ impl Qwen3 {
 
         let lm_head = QMatMul::from_weights(lm_head_tensor.into())?;
 
-        let chat_format = ChatFormat::new(tokenizer)?;
+        let chat_format = ChatFormat::new(tokenizer.clone())?;
 
         Ok(Self {
             embed_tokens,
@@ -103,21 +152,20 @@ impl Qwen3 {
             device,
             dtype,
             chat_format,
+            tokenizer
         })
     }
-}
 
-impl ModelWeights for Qwen3 {
     fn forward(&self, input: &Tensor, offset: usize, kv_cache: &mut KvCache) -> CandleResult<Tensor> {
         let (b, l) = input.dims2()?;
         let mut h = self.embed_tokens.forward(input)?;
-        
+
         let causal_mask = if l == 1 {
             None
         } else {
             Some(mask(b, l, offset, None, self.dtype, &self.device)?)
         };
-        
+
         for (layer, cache) in self.layers.iter().zip(kv_cache.iter_mut()) {
             h = layer.forward(&h, causal_mask.as_ref(), offset, cache)?;
         }
@@ -131,8 +179,8 @@ impl ModelWeights for Qwen3 {
         self.layers.len()
     }
 
-    fn tokenizer(&self) -> &Tokenizer {
-        &self.chat_format.tokenizer()
+    fn tokenizer(&self) -> Arc<Tokenizer> {
+        self.tokenizer.clone()
     }
 
     fn device(&self) -> &Device {
@@ -146,7 +194,7 @@ impl ModelWeights for Qwen3 {
     fn assistant_start_template(&self) -> Vec<u32> {
         self.chat_format.assistant_start_template()
     }
-    
+
     fn eos_token(&self) -> u32 {
         self.chat_format.eos_token()
     }

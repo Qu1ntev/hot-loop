@@ -1,4 +1,4 @@
-use candle_core::{Device, Tensor};
+use candle_core::Tensor;
 use candle_transformers::generation::LogitsProcessor;
 use crate::settings::Settings;
 use crate::Error;
@@ -7,28 +7,26 @@ use crate::utils::token_output_stream::TokenOutputStream;
 use crate::utils::kv_cache::KvCache;
 
 #[non_exhaustive]
-pub struct Generation<'session, 'model, M: Model> {
-    model: &'model M,
+pub struct Generation<'session, M: Model> {
+    model: &'session M,
     index: usize,
     next_token: u32,
     tokens_prefill: Option<Vec<u32>>,
     all_tokens: Vec<u32>,
     settings: Settings,
-    device: &'model Device,
     eos_token: u32,
     logits_processor: LogitsProcessor,
-    tos: &'session mut TokenOutputStream<'model>,
+    tos: &'session mut TokenOutputStream,
     kv_cache: &'session mut KvCache
 }
 
-impl<'session, 'model, M: Model> Generation<'session, 'model, M> {
+impl<'session, M: Model> Generation<'session, M> {
     pub(crate) fn new(
-        model: &'model M,
+        model: &'session M,
         tokens_prefill: Vec<u32>,
         logits_processor: LogitsProcessor,
-        device: &'model Device,
         settings: Settings,
-        tos: &'session mut TokenOutputStream<'model>,
+        tos: &'session mut TokenOutputStream,
         kv_cache: &'session mut KvCache,
         eos_token: u32,
     ) -> Self {
@@ -39,7 +37,6 @@ impl<'session, 'model, M: Model> Generation<'session, 'model, M> {
             all_tokens: Vec::new(),
             tokens_prefill: Some(tokens_prefill),
             logits_processor,
-            device,
             settings,
             tos,
             kv_cache,
@@ -57,12 +54,12 @@ impl<'session, 'model, M: Model> Generation<'session, 'model, M> {
 
             let input = if self.index == 0 &&
                 let Some(tokens_prefill) = self.tokens_prefill.as_ref() {
-                let input = Tensor::new(tokens_prefill.as_slice(), &self.device)?.unsqueeze(0)?;
+                let input = Tensor::new(tokens_prefill.as_slice(), self.model.device())?.unsqueeze(0)?;
                 self.tokens_prefill = None;
                 input
 
             } else {
-                Tensor::new(&[self.next_token], self.device)?.unsqueeze(0)?
+                Tensor::new(&[self.next_token], self.model.device())?.unsqueeze(0)?
             };
 
             let logits = self.model.forward(&input, current_pos, &mut self.kv_cache)?;
@@ -91,7 +88,7 @@ impl<'session, 'model, M: Model> Generation<'session, 'model, M> {
     }
 }
 
-impl<'session, 'model, M: Model> Drop for Generation<'session, 'model, M> {
+impl<'session, M: Model> Drop for Generation<'session, M> {
     fn drop(&mut self) {
         self.tos.clear();
     }

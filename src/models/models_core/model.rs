@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use candle_core::{Device, Result as CandleResult, Tensor};
 use crate::{session::Session, Error};
 use crate::utils::kv_cache::KvCache;
@@ -5,12 +6,12 @@ use crate::session::history::Role;
 use tokenizers::Tokenizer;
 
 #[doc(hidden)]
-pub trait ModelWeights {
+pub trait ModelWeights: Clone {
     fn forward(&self, input: &Tensor, offset: usize, kv_cache: &mut KvCache) -> CandleResult<Tensor>;
 
     fn layers_len(&self) -> usize;
 
-    fn tokenizer(&self) -> &Tokenizer;
+    fn tokenizer(&self) -> Arc<Tokenizer>;
 
     fn device(&self) -> &Device;
 
@@ -20,11 +21,11 @@ pub trait ModelWeights {
 }
 
 pub trait Model: ModelWeights {
-    fn new_session(&self) -> Session<'_, Self> where Self: Sized;
+    fn new_session(&self) -> Session<Self> where Self: Sized;
 }
 
-impl<T: ModelWeights> Model for T {
-    fn new_session(&self) -> Session<'_, T> {
-        Session::new(self)
+impl<M: ModelWeights> Model for M {
+    fn new_session(&self) -> Session<M> {
+        Session::new(self.clone())
     }
 }
