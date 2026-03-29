@@ -270,7 +270,7 @@ const QUESTIONS: [&str; 4] = [
     "hello!",
     "what can you do?",
     "what is the book war and peace about?",
-    "make a plan for your trip to Shanghai"
+    "make a plan for my trip to Shanghai"
 ];
 
 fn main() -> Result<(), Error> {
