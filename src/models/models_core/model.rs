@@ -20,12 +20,11 @@ pub trait ModelWeights {
 }
 
 pub trait Model: ModelWeights {
-    fn new_session(&self) -> Session<'_, Self>
-    where
-        Self: Sized
-    {
+    fn new_session(&self) -> Session<'_, Self> where Self: Sized;
+}
+
+impl<T: ModelWeights> Model for T {
+    fn new_session(&self) -> Session<'_, T> {
         Session::new(self)
     }
 }
-
-impl<T: ModelWeights> Model for T {}
