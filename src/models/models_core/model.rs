@@ -6,7 +6,7 @@ use crate::session::history::Role;
 use tokenizers::Tokenizer;
 
 #[doc(hidden)]
-pub trait ModelWeights: Clone {
+pub trait ModelWeights {
     fn forward(&self, input: &Tensor, offset: usize, kv_cache: &mut KvCache) -> CandleResult<Tensor>;
 
     fn layers_len(&self) -> usize;
@@ -24,7 +24,7 @@ pub trait Model: ModelWeights {
     fn new_session(&self) -> Session<Self> where Self: Sized;
 }
 
-impl<M: ModelWeights> Model for M {
+impl<M: ModelWeights + Clone> Model for M {
     fn new_session(&self) -> Session<M> {
         Session::new(self.clone())
     }
