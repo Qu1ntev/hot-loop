@@ -16,7 +16,6 @@ use super::super::models_core::mask::mask;
 use crate::utils::gguf::Gguf;
 use super::transformers::LayerWeights;
 
-#[non_exhaustive]
 #[derive(Clone)]
 pub struct Qwen3(Arc<Qwen3Inner>);
 
