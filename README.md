@@ -18,7 +18,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/hot-loop.svg)](https://crates.io/crates/hot-loop)
 
-## Quick Start
+# Quick Start
 
 ### Install: ```cargo add hot-loop```
 
@@ -91,7 +91,22 @@ panic = "abort"
 
 ---
 
-## Typing
+# Enable CUDA 🔋
+
+## Cargo.toml:
+```toml
+[dependencies]
+hot-loop = { version = "...", features = ["cuda"] }
+```
+
+## Rust Code
+```rust
+Qwen3::load(..., ..., Device::new_cuda(0)?)?
+```
+
+---
+
+# Typing
 
 ```rust
 use std::fs::{File, read};
@@ -129,7 +144,7 @@ fn main() -> Result<(), Error> {
 
 ---
 
-## Session Settings
+# Session Settings
 
 ```rust
 use std::fs::{File, read};
@@ -170,7 +185,7 @@ fn main() -> Result<(), Error> {
 
 ---
 
-## Session System-prompt
+# Session System-prompt
 
 ```rust
 use std::fs::{File, read};
@@ -205,7 +220,7 @@ fn main() -> Result<(), Error> {
 
 ---
 
-## Session History
+# Session History
 
 ```rust
 use std::fs::{File, read};
@@ -241,7 +256,7 @@ fn main() -> Result<(), Error> {
 
 ---
 
-## Thread Safety
+# Thread Safety
 ### Parallelism Generation in different independent sessions
 
 ```rust
