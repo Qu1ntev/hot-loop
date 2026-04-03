@@ -177,7 +177,7 @@ fn main() -> Result<(), Error> {
     let settings = Settings::default()
         .with_temperature(0.7)
         .with_sample_len(512)
-        .with_seed(Seed::Custom(12345)) // or Seed::Default
+        .with_seed(Seed::Custom(12345)) // or Seed::Random
         .with_top_p(Some(0.5))
         .with_top_k(Some(40))
         .with_repeat_penalty(1.1)

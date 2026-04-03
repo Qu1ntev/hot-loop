@@ -13,7 +13,7 @@ pub struct Settings {
 pub enum Seed {
     // Random,
     Custom(u64),
-    Default, // temporary
+    Random,
 }
 
 impl Default for Settings {
@@ -25,7 +25,7 @@ impl Default for Settings {
             top_k: None,
             repeat_penalty: 1.1,
             repeat_last_n: 64,
-            seed: Seed::Default,
+            seed: Seed::Random,
         }
     }
 }

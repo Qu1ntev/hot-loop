@@ -20,6 +20,7 @@ accelerate-src = { version = "0.3.2", optional = true }
 tokenizers = "0.22.2"
 
 thiserror = "2.0.18"
+rand = "0.10.0"
 
 [features]
 default = []
