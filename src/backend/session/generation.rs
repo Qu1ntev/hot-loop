@@ -53,10 +53,8 @@ impl<'session, M: Model> Generation<'session, M> {
             let current_pos = self.kv_cache.current_pos();
 
             let input = if self.index == 0 &&
-                let Some(tokens_prefill) = self.tokens_prefill.as_ref() {
-                let input = Tensor::new(tokens_prefill.as_slice(), self.model.device())?.unsqueeze(0)?;
-                self.tokens_prefill = None;
-                input
+                let Some(tokens_prefill) = self.tokens_prefill.take() {
+                Tensor::new(tokens_prefill.as_slice(), self.model.device())?.unsqueeze(0)?
 
             } else {
                 Tensor::new(&[self.next_token], self.model.device())?.unsqueeze(0)?
