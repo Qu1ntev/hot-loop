@@ -14,8 +14,8 @@ candle-core = "0.10.2"
 candle-transformers = "0.10.2"
 candle-nn = "0.10.2"
 
-intel-mkl-src = { version = "0.8.1", optional = true }
-accelerate-src = { version = "0.3.2", optional = true }
+# intel-mkl-src = { version = "0.8.1", optional = true }
+# accelerate-src = { version = "0.3.2", optional = true }
 
 tokenizers = "0.22.2"
 
@@ -28,5 +28,5 @@ default = []
 cuda = ["candle-core/cuda", "candle-transformers/cuda", "candle-nn/cuda"]
 # metal = ["candle-core/metal", "candle-transformers/metal", "candle-nn/metal"]
 
-mkl = ["dep:intel-mkl-src", "candle-core/mkl", "candle-transformers/mkl", "candle-nn/mkl"]
-accelerate = ["dep:accelerate-src", "candle-core/accelerate", "candle-transformers/accelerate", "candle-nn/accelerate"]
+# mkl = ["dep:intel-mkl-src", "candle-core/mkl", "candle-transformers/mkl", "candle-nn/mkl"]
+# accelerate = ["dep:accelerate-src", "candle-core/accelerate", "candle-transformers/accelerate", "candle-nn/accelerate"]
