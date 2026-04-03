@@ -7,7 +7,7 @@ license = "MIT"
 description = "Running Gguf Chat-Models on Pure-Rust, Uses the Candle Backend"
 repository = "https://github.com/Qu1ntev/hot-loop"
 
-keywords = ["llm", "gguf", "candle", "inference", "model"]
+keywords = ["llm", "gguf", "inference", "model", "session"]
 
 [dependencies]
 candle-core = "0.10.2"
