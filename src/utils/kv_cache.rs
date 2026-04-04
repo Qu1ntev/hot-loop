@@ -2,9 +2,7 @@ use std::ops::{Deref, DerefMut};
 use candle_core::{Tensor, Error};
 
 #[doc(hidden)]
-pub struct KvCache {
-    kv_cache: Vec<ConcatKvCache>
-}
+pub struct KvCache(Vec<ConcatKvCache>);
 
 impl KvCache {
     /// Create KvCache
@@ -13,12 +11,12 @@ impl KvCache {
     pub fn new(len: usize, dim: usize) -> Self {
         let mut kv_cache = Vec::with_capacity(len);
         for _ in 0..len { kv_cache.push(ConcatKvCache::new(dim)); }
-        Self { kv_cache }
+        Self(kv_cache)
     }
 
     /// Clear all stored keys and values
     pub fn clear(&mut self) {
-        for cache in &mut self.kv_cache {
+        for cache in &mut self.0 {
             cache.k = None;
             cache.v = None;
         }
@@ -37,7 +35,7 @@ impl KvCache {
             return Ok(());
         }
 
-        for cache in &mut self.kv_cache {
+        for cache in &mut self.0 {
             if let Some(k_cache) = &cache.k {
                 cache.k = Some(k_cache.narrow(cache.dim, 0, index)?.contiguous()?);
             }
@@ -51,7 +49,7 @@ impl KvCache {
     /// Get current sequence length in the cache.
     /// Returns 0 if the cache is empty.
     pub fn current_pos(&self) -> usize {
-        match self.kv_cache.get(0) {
+        match self.0.get(0) {
             Some(cache) => {
                 cache.k.as_ref()
                     .and_then(|k| k.dims().get(cache.dim).copied())
@@ -65,13 +63,13 @@ impl KvCache {
 impl Deref for KvCache {
     type Target = Vec<ConcatKvCache>;
     fn deref(&self) -> &Self::Target {
-        &self.kv_cache
+        &self.0
     }
 }
 
 impl DerefMut for KvCache {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.kv_cache
+        &mut self.0
     }
 }
 
