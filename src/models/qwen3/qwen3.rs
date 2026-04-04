@@ -43,7 +43,7 @@ impl ModelWeights for Qwen3 {
         self.0.layers_len()
     }
 
-    fn tokenizer(&self) -> Arc<Tokenizer> {
+    fn tokenizer(&self) -> &Tokenizer {
         self.0.tokenizer()
     }
 
@@ -66,13 +66,14 @@ impl ModelWeights for Qwen3 {
 
 struct Qwen3Inner {
     embed_tokens: Embedding,
+    rotary_embedding: RotaryEmbedding,
     layers: Vec<LayerWeights>,
     norm: RmsNorm,
     lm_head: QMatMul,
     device: Device,
     dtype: DType,
     chat_format: ChatFormat,
-    tokenizer: Arc<Tokenizer>,
+    tokenizer: Tokenizer,
 }
 
 impl Qwen3Inner {
@@ -86,7 +87,7 @@ impl Qwen3Inner {
         T: AsRef<[u8]>,
     {
         let ct = gguf_file::Content::read(model)?;
-        let tokenizer = Arc::new(Tokenizer::from_bytes(tokenizer)?);
+        let tokenizer = Tokenizer::from_bytes(tokenizer)?;
 
         let mut gg = Gguf::new("qwen3", &ct, model, &device);
 
@@ -111,13 +112,13 @@ impl Qwen3Inner {
         let embed_tensor = gg.tensor("token_embd.weight")?;
         let embed_tokens = Embedding::new(embed_tensor.dequantize(&device)?, hidden_size);
 
-        let rotary = Arc::new(RotaryEmbedding::new(
+        let rotary_embedding = RotaryEmbedding::new(
             head_dim,
             rope_freq_base,
             max_position_embeddings,
             dtype,
             &device,
-        )?);
+        )?;
 
         let mut layers = Vec::with_capacity(num_layers);
         for i in 0..num_layers {
@@ -127,7 +128,6 @@ impl Qwen3Inner {
                 num_kv_heads,
                 head_dim,
                 rms_norm_eps,
-                rotary.clone(),
                 i,
             )?);
         }
@@ -141,10 +141,11 @@ impl Qwen3Inner {
 
         let lm_head = QMatMul::from_weights(lm_head_tensor.into())?;
 
-        let chat_format = ChatFormat::new(tokenizer.clone())?;
+        let chat_format = ChatFormat::new(&tokenizer)?;
 
         Ok(Self {
             embed_tokens,
+            rotary_embedding,
             layers,
             norm,
             lm_head,
@@ -166,7 +167,7 @@ impl Qwen3Inner {
         };
 
         for (layer, cache) in self.layers.iter().zip(kv_cache.iter_mut()) {
-            h = layer.forward(&h, causal_mask.as_ref(), offset, cache)?;
+            h = layer.forward(&h, causal_mask.as_ref(), offset, &self.rotary_embedding, cache)?;
         }
 
         let h = self.norm.forward(&h)?;
@@ -178,8 +179,8 @@ impl Qwen3Inner {
         self.layers.len()
     }
 
-    fn tokenizer(&self) -> Arc<Tokenizer> {
-        self.tokenizer.clone()
+    fn tokenizer(&self) -> &Tokenizer {
+        &self.tokenizer
     }
 
     fn device(&self) -> &Device {
@@ -187,7 +188,7 @@ impl Qwen3Inner {
     }
 
     fn fmt_prompt(&self, prompt: &str, role: Role) -> Result<Vec<u32>, Error> {
-        self.chat_format.fmt_prompt(prompt, role)
+        self.chat_format.fmt_prompt(&self.tokenizer, prompt, role)
     }
 
     fn assistant_start_template(&self) -> Vec<u32> {

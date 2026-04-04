@@ -3,7 +3,6 @@ use candle_transformers::{quantized_nn::RmsNorm, utils::repeat_kv};
 use candle_core::{Result, Tensor};
 use candle_nn::{Activation, Module};
 use std::io::{Read, Seek};
-use std::sync::Arc;
 use crate::utils::kv_cache::ConcatKvCache;
 use super::super::models_core::rotary_embedding::RotaryEmbedding;
 use crate::utils::gguf::Gguf;
@@ -20,7 +19,6 @@ struct AttentionWeights {
     num_kv_heads: usize,
     num_kv_groups: usize,
     head_dim: usize,
-    rotary_emb: Arc<RotaryEmbedding>,
 }
 
 impl AttentionWeights {
@@ -30,7 +28,6 @@ impl AttentionWeights {
         num_kv_heads: usize,
         head_dim: usize,
         rms_norm_eps: f64,
-        rotary_emb: Arc<RotaryEmbedding>,
         prefix: &str,
     ) -> Result<Self> {
         let num_kv_groups = num_heads / num_kv_heads;
@@ -54,11 +51,17 @@ impl AttentionWeights {
             num_kv_heads,
             num_kv_groups,
             head_dim,
-            rotary_emb,
         })
     }
 
-    fn forward(&self, x: &Tensor, attn_mask: Option<&Tensor>, offset: usize, kv_cache: &mut ConcatKvCache) -> Result<Tensor> {
+    fn forward(
+        &self,
+        x: &Tensor,
+        attn_mask: Option<&Tensor>,
+        offset: usize,
+        rotary_embedding: &RotaryEmbedding,
+        kv_cache: &mut ConcatKvCache
+    ) -> Result<Tensor> {
         let (b, l, _) = x.dims3()?;
 
         let q = self.q_proj.forward(x)?;
@@ -83,7 +86,7 @@ impl AttentionWeights {
         let q = q_flat.reshape((b, self.num_heads, l, self.head_dim))?;
         let k = k_flat.reshape((b, self.num_kv_heads, l, self.head_dim))?;
 
-        let (q, k) = self.rotary_emb.apply(&q, &k, offset)?;
+        let (q, k) = rotary_embedding.apply(&q, &k, offset)?;
 
         let (k, v) = kv_cache.append(&k, &v)?;
 
@@ -125,7 +128,6 @@ impl LayerWeights {
         num_key_value_heads: usize,
         head_dim: usize,
         rms_norm_eps: f64,
-        rotary: Arc<RotaryEmbedding>,
         layer_idx: usize,
     ) -> Result<Self> {
         let prefix = format!("blk.{layer_idx}");
@@ -138,7 +140,6 @@ impl LayerWeights {
             num_key_value_heads,
             head_dim,
             rms_norm_eps,
-            rotary,
             &prefix,
         )?;
         let mlp = Mlp::new(gg, &prefix, Activation::Silu)?;
@@ -150,9 +151,16 @@ impl LayerWeights {
         })
     }
 
-    pub fn forward(&self, x: &Tensor, mask: Option<&Tensor>, offset: usize, kv_cache: &mut ConcatKvCache) -> Result<Tensor> {
+    pub fn forward(
+        &self,
+        x: &Tensor,
+        mask: Option<&Tensor>,
+        offset: usize,
+        rotary_embedding: &RotaryEmbedding,
+        kv_cache: &mut ConcatKvCache
+    ) -> Result<Tensor> {
         let h = self.ln1.forward(x)?;
-        let h = self.self_attn.forward(&h, mask, offset, kv_cache)?;
+        let h = self.self_attn.forward(&h, mask, offset, rotary_embedding, kv_cache)?;
         let x = (x + h)?;
         let h2 = self.ln2.forward(&x)?;
         let h2 = h2.apply(&self.mlp)?;

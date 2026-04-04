@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use candle_core::{Device, Result as CandleResult, Tensor};
 use crate::{session::Session, Error};
 use crate::utils::kv_cache::KvCache;
@@ -11,7 +10,7 @@ pub trait ModelWeights {
 
     fn layers_len(&self) -> usize;
 
-    fn tokenizer(&self) -> Arc<Tokenizer>;
+    fn tokenizer(&self) -> &Tokenizer;
 
     fn device(&self) -> &Device;
 

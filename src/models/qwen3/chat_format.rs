@@ -1,7 +1,6 @@
 use tokenizers::Tokenizer;
 use crate::Error;
 use crate::session::history::Role;
-use std::sync::Arc;
 
 const IM_START: &str =  "<|im_start|>";
 const IM_END: &str =    "<|im_end|>";
@@ -11,8 +10,6 @@ const ASSISTANT: &str = "assistant";
 const NEW_LINE: &str =  "\n";
 
 pub(crate) struct ChatFormat {
-    tokenizer: Arc<Tokenizer>,
-
     im_start: u32,
     im_end: u32,
 
@@ -25,7 +22,7 @@ pub(crate) struct ChatFormat {
 
 impl ChatFormat {
     pub fn new(
-        tokenizer: Arc<Tokenizer>
+        tokenizer: &Tokenizer
     ) -> Result<Self, Error> {
         let get = |text: &str| tokenizer.token_to_id(text)
             .ok_or_else(|| Error::MissingValue(format!("No token named: {text}")));
@@ -44,8 +41,6 @@ impl ChatFormat {
             .ok_or_else(|| Error::MissingValue("No token named \\n".into()))?;
 
         Ok(Self {
-            tokenizer,
-
             im_start,
             im_end,
 
@@ -61,7 +56,12 @@ impl ChatFormat {
     /// ```rust
     /// "<|im_start|>{role}\n{prompt}<|im_end|>\n"
     /// ```
-    pub fn fmt_prompt(&self, prompt: &str, role: Role) -> Result<Vec<u32>, Error> {
+    pub fn fmt_prompt(
+        &self,
+        tokenizer: &Tokenizer,
+        prompt: &str,
+        role: Role
+    ) -> Result<Vec<u32>, Error> {
         let role = match role {
             Role::System => self.system,
             Role::User => self.user,
@@ -71,7 +71,7 @@ impl ChatFormat {
         let left = [self.im_start, role, self.new_line];
         let right = [self.im_end, self.new_line];
 
-        let prompt = self.tokenizer.encode(prompt, false)?;
+        let prompt = tokenizer.encode(prompt, false)?;
 
         let mut tokens = Vec::with_capacity(
             left.len() + prompt.get_ids().len() + right.len()

@@ -24,7 +24,7 @@ impl<M: Model> Session<M> {
         let layers_len = model.layers_len();
         let kv_cache = KvCache::new(layers_len, 2);
 
-        let tos = TokenOutputStream::new(model.tokenizer());
+        let tos = TokenOutputStream::new();
         
         Self {
             model,

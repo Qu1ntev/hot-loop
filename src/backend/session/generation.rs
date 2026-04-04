@@ -79,7 +79,7 @@ impl<'session, M: Model> Generation<'session, M> {
 
             self.index += 1;
 
-            if let Some(chunk) = self.tos.next_token(self.next_token)? {
+            if let Some(chunk) = self.tos.next_token(self.model.tokenizer(), self.next_token)? {
                 return Ok(Some(chunk))
             }
         }
