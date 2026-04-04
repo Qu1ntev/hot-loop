@@ -7,8 +7,6 @@ use crate::Model;
 use crate::session::history::Role;
 use crate::utils::kv_cache::KvCache;
 use crate::utils::token_output_stream::TokenOutputStream;
-use rand::rngs::ThreadRng;
-use rand::RngExt;
 
 #[non_exhaustive]
 pub struct Session<M: Model> {
@@ -17,7 +15,6 @@ pub struct Session<M: Model> {
     kv_cache: KvCache,
     tos: TokenOutputStream,
     system_prompt_pos: Option<usize>,
-    rng: ThreadRng
 }
 
 impl<M: Model> Session<M> {
@@ -28,7 +25,6 @@ impl<M: Model> Session<M> {
         let kv_cache = KvCache::new(layers_len, 2);
 
         let tos = TokenOutputStream::new(model.tokenizer());
-        let rng = rand::rng();
         
         Self {
             model,
@@ -36,7 +32,6 @@ impl<M: Model> Session<M> {
             kv_cache,
             tos,
             system_prompt_pos: None,
-            rng
         }
     }
 
@@ -66,7 +61,7 @@ impl<M: Model> Session<M> {
 
             let seed = match self.settings.seed {
                 Seed::Custom(seed) => seed,
-                Seed::Random => self.rng.random()
+                Seed::Random => rand::random()
             };
 
             LogitsProcessor::from_sampling(seed, sampling)
