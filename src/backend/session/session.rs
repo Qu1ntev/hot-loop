@@ -1,12 +1,12 @@
 use candle_transformers::generation::{LogitsProcessor, Sampling};
-use candle_core::Tensor;
+// use candle_core::Tensor;
 use super::Generation;
 use crate::settings::{Settings, Seed};
 use crate::Error;
 use crate::Model;
-use crate::session::history::Role;
 use crate::utils::kv_cache::KvCache;
 use crate::utils::token_output_stream::TokenOutputStream;
+use super::history::Message;
 
 #[non_exhaustive]
 pub struct Session<M: Model> {
@@ -14,7 +14,7 @@ pub struct Session<M: Model> {
     settings: Settings,
     kv_cache: KvCache,
     tos: TokenOutputStream,
-    system_prompt_pos: Option<usize>,
+    cached_tokens: Vec<u32>,
 }
 
 impl<M: Model> Session<M> {
@@ -31,20 +31,22 @@ impl<M: Model> Session<M> {
             settings,
             kv_cache,
             tos,
-            system_prompt_pos: None,
+            cached_tokens: Vec::new(),
         }
     }
 
-    pub fn generate(&mut self, prompt: &str) -> Result<Generation<'_, M>, Error> {
-        let user_tokens = self.model.fmt_prompt(prompt, Role::User)?;
-        let assistant_start_tokens = self.model.assistant_start_template();
+    pub fn generate(&mut self, messages: &[Message]) -> Result<Generation<'_, M>, Error> {
+        // let messages_tokens = self.model.fmt_prompt(messages)?;
+        //
+        // let mask = self.history_mask(&messages_tokens);
+        // self.cached_tokens.truncate(mask);
+        //
+        // let mut tokens = self.cached_tokens;
+        // let start_template = self.model.assistant_start_template();
+        //
+        // tokens.extend_from_slice(&start_template);
 
-        let mut tokens = Vec::with_capacity(
-            user_tokens.len() + assistant_start_tokens.len()
-        );
-
-        tokens.extend_from_slice(&user_tokens);
-        tokens.extend_from_slice(&assistant_start_tokens);
+        let tokens = vec![];
 
         let logits_processor = {
             let temperature = self.settings.temperature;
@@ -87,34 +89,14 @@ impl<M: Model> Session<M> {
         self.settings = settings;
     }
 
-    pub fn with_system_prompt(mut self, system_prompt: &str) -> Result<Self, Error> {
-        self.set_system_prompt_and_clear_history(system_prompt)?;
-        Ok(self)
+    fn history_mask(&self, tokens: &[u32]) -> usize {
+        self.cached_tokens.iter()
+            .zip(tokens.iter())
+            .take_while(|(a, b)| a == b)
+            .count()
     }
 
-    pub fn set_system_prompt_and_clear_history(&mut self, system_prompt: &str) -> Result<(), Error> {
-        self.kv_cache.clear();
-
-        let sys_tokens = self.model.fmt_prompt(system_prompt, Role::System)?;
-        let input = Tensor::new(sys_tokens, self.model.device())?.unsqueeze(0)?;
-        let _ = self.model.forward(&input, 0, &mut self.kv_cache)?;
-
-        let current_pos = self.kv_cache.current_pos();
-
-        self.system_prompt_pos = Some(current_pos);
-
-        Ok(())
-    }
-
-    pub fn clear_history(&mut self) -> Result<(), Error> {
-        match self.system_prompt_pos {
-            Some(pos) => self.kv_cache.truncate(pos)?,
-            None => self.kv_cache.clear()
-        }
-        Ok(())
-    }
-
-    pub fn clear_system_prompt_and_history(&mut self) {
+    pub fn clear_cache(&mut self) {
         self.kv_cache.clear();
     }
 }
