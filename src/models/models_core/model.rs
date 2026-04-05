@@ -19,12 +19,10 @@ pub trait ModelWeights {
     fn eos_token(&self) -> u32;
 }
 
-pub trait Model: ModelWeights {
-    fn new_session(&self) -> Session<Self> where Self: Sized;
-}
-
-impl<M: ModelWeights + Clone> Model for M {
-    fn new_session(&self) -> Session<M> {
+pub trait Model: ModelWeights + Clone + Send + Sync + 'static {
+    fn new_session(&self) -> Session {
         Session::new(self.clone())
     }
 }
+
+impl<M: ModelWeights + Clone + Send + Sync + 'static> Model for M {}

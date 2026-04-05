@@ -21,11 +21,13 @@ tokenizers = "0.22.2"
 
 thiserror = "2.0.18"
 rand = "0.10.0"
+tokio = { version = "1.51.0", features = ["full"], optional = true }
 
 [features]
 default = []
 
 cuda = ["candle-core/cuda", "candle-transformers/cuda", "candle-nn/cuda"]
+tokio = ["dep:tokio"]
 # metal = ["candle-core/metal", "candle-transformers/metal", "candle-nn/metal"]
 
 # mkl = ["dep:intel-mkl-src", "candle-core/mkl", "candle-transformers/mkl", "candle-nn/mkl"]
