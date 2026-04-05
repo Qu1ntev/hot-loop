@@ -10,16 +10,16 @@ use std::sync::mpsc::Receiver;
 #[non_exhaustive]
 pub struct Generation<'session> {
     _handle: &'session (),
-    receiver: Receiver<String>
+    receiver: Receiver<Option<String>>
 }
 
 impl<'session> Generation<'session> {
-    pub(crate) fn new(_handle: &'session (), receiver: Receiver<String>) -> Self {
+    pub(crate) fn new(_handle: &'session (), receiver: Receiver<Option<String>>) -> Self {
         Self { _handle, receiver }
     }
     
     pub fn next_chunk(&self) -> Option<String> {
-        self.receiver.recv().ok()
+        self.receiver.recv().unwrap_or(None)
     }
 }
 
