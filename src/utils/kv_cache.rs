@@ -116,3 +116,34 @@ impl ConcatKvCache {
         Ok((k, v))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use candle_core::Device;
+    use super::*;
+
+    #[test]
+    fn test() -> Result<(), Error> {
+        let mut kv_cache = KvCache::new(10, 2);
+
+        let tensor1 = Tensor::new(&[[[ 45f32, 1.0 ]]], &Device::Cpu)?;
+        let tensor2 = Tensor::new(&[[[ 45f32, 1.0 ]]], &Device::Cpu)?;
+
+        for cache in kv_cache.iter_mut() {
+            cache.append(&tensor1, &tensor2)?;
+        }
+
+        assert_eq!(kv_cache.current_pos(), 2);
+
+        kv_cache.truncate(2)?;
+        assert_eq!(kv_cache.current_pos(), 2);
+
+        kv_cache.truncate(1)?;
+        assert_eq!(kv_cache.current_pos(), 1);
+
+        kv_cache.clear();
+        assert_eq!(kv_cache.current_pos(), 0);
+
+        Ok(())
+    }
+}
