@@ -53,8 +53,8 @@ fn main() -> Result<(), Error> {
 
     let mut session = model.new_session();
     // and more sessions!
-    // let mut session2 = model.new_session();
-    // let mut session3 = model.new_session();
+    // let mut session2 = Session::new(Arc::new(model));
+    // let mut session3 = (&model).new_session();
 
     let mut generate = session.generate("Hello!")?;
 
@@ -112,7 +112,7 @@ hot-loop = { version = "...", features = ["cuda"] }
 
 ## Rust Code
 ```rust
-Qwen3::load(..., ..., Device::new_cuda(0)?)?
+Qwen3::load(.., .., Device::new_cuda(0)?)?
 ```
 
 ---
@@ -130,7 +130,7 @@ use hot_loop::{
     Error
 };
 
-fn func1(_model: &impl Model) {}
+fn func1<M: Model>(_model: &M) {}
 
 fn func2(_session: &mut Session<impl Model>) {}
 
@@ -273,6 +273,7 @@ fn main() -> Result<(), Error> {
 ```rust
 use std::fs::{File, read};
 use std::thread;
+use std::sync::Arc;
 use hot_loop::{
     Model,
     models::{Qwen3},
@@ -303,12 +304,14 @@ fn main() -> Result<(), Error> {
     let mut model_file = File::open("models/Qwen3-4B-it-Q4_K_M.gguf").unwrap();
     let tokenizer_bytes = read("models/tokenizer.json").unwrap();
 
-    let model = Qwen3::load(&mut model_file, &tokenizer_bytes, Device::Cpu)?;
+    let model = Arc::new(Qwen3::load(&mut model_file, &tokenizer_bytes, Device::Cpu)?);
 
     let mut handles = Vec::new();
 
     for prompt in QUESTIONS {
-        let session = model.new_session();
+        let session = model.clone().new_session();
+        // OR
+        // let session: Session<Arc<Qwen3>> = Session::new(model.clone());
 
         let handle = thread::spawn(move || {
             generate(session, prompt)

@@ -4,7 +4,7 @@ use candle_core::quantized::{gguf_file};
 use candle_core::{DType, Device, Result as CandleResult, Tensor};
 use candle_nn::{Embedding, Module};
 use std::io::{Read, Seek};
-use std::sync::Arc;
+// use std::sync::Arc;
 use crate::Error;
 use crate::utils::kv_cache::KvCache;
 use tokenizers::Tokenizer;
@@ -16,55 +16,85 @@ use super::super::models_core::mask::mask;
 use crate::utils::gguf::Gguf;
 use super::transformers::LayerWeights;
 
-#[derive(Clone)]
-pub struct Qwen3(Arc<Qwen3Inner>);
+// #[derive(Clone)]
+// pub struct Qwen3(Arc<Qwen3Inner>);
+//
+// impl Qwen3 {
+//     pub fn load<M, T>(
+//         model: &mut M,
+//         tokenizer: T,
+//         device: Device,
+//     ) -> Result<Self, Error>
+//     where
+//         M: Read + Seek,
+//         T: AsRef<[u8]>,
+//     {
+//         let model = Qwen3Inner::load(model, tokenizer, device)?;
+//         Ok(Self(Arc::new(model)))
+//     }
+// }
 
-impl Qwen3 {
-    pub fn load<M, T>(
-        model: &mut M,
-        tokenizer: T,
-        device: Device,
-    ) -> Result<Self, Error>
-    where
-        M: Read + Seek,
-        T: AsRef<[u8]>,
-    {
-        let model = Qwen3Inner::load(model, tokenizer, device)?;
-        Ok(Self(Arc::new(model)))
-    }
-}
+// impl ModelWeights for Qwen3 {
+//     fn forward(&self, input: &Tensor, offset: usize, kv_cache: &mut KvCache) -> CandleResult<Tensor> {
+//         self.0.forward(input, offset, kv_cache)
+//     }
+//
+//     fn layers_len(&self) -> usize {
+//         self.0.layers_len()
+//     }
+//
+//     fn tokenizer(&self) -> &Tokenizer {
+//         self.0.tokenizer()
+//     }
+//
+//     fn device(&self) -> &Device {
+//         &self.0.device()
+//     }
+//
+//     fn fmt_prompt(&self, prompt: &str, role: Role) -> Result<Vec<u32>, Error> {
+//         self.0.fmt_prompt(prompt, role)
+//     }
+//
+//     fn assistant_start_template(&self) -> Vec<u32> {
+//         self.0.assistant_start_template()
+//     }
+//
+//     fn eos_token(&self) -> u32 {
+//         self.0.eos_token()
+//     }
+// }
 
 impl ModelWeights for Qwen3 {
     fn forward(&self, input: &Tensor, offset: usize, kv_cache: &mut KvCache) -> CandleResult<Tensor> {
-        self.0.forward(input, offset, kv_cache)
+        self.forward(input, offset, kv_cache)
     }
 
     fn layers_len(&self) -> usize {
-        self.0.layers_len()
+        self.layers_len()
     }
 
     fn tokenizer(&self) -> &Tokenizer {
-        self.0.tokenizer()
+        self.tokenizer()
     }
 
     fn device(&self) -> &Device {
-        &self.0.device()
+        &self.device()
     }
 
     fn fmt_prompt(&self, prompt: &str, role: Role) -> Result<Vec<u32>, Error> {
-        self.0.fmt_prompt(prompt, role)
+        self.fmt_prompt(prompt, role)
     }
 
     fn assistant_start_template(&self) -> Vec<u32> {
-        self.0.assistant_start_template()
+        self.assistant_start_template()
     }
 
     fn eos_token(&self) -> u32 {
-        self.0.eos_token()
+        self.eos_token()
     }
 }
 
-struct Qwen3Inner {
+pub struct Qwen3 {
     embed_tokens: Embedding,
     rotary_embedding: RotaryEmbedding,
     layers: Vec<LayerWeights>,
@@ -76,8 +106,8 @@ struct Qwen3Inner {
     tokenizer: Tokenizer,
 }
 
-impl Qwen3Inner {
-    fn load<M, T>(
+impl Qwen3 {
+    pub fn load<M, T>(
         model: &mut M,
         tokenizer: T,
         device: Device,

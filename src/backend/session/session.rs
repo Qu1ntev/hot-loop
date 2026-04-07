@@ -18,7 +18,7 @@ pub struct Session<M: Model> {
 }
 
 impl<M: Model> Session<M> {
-    pub(crate) fn new(model: M) -> Self {
+    pub fn new(model: M) -> Self {
         let settings = Settings::default();
 
         let layers_len = model.layers_len();
