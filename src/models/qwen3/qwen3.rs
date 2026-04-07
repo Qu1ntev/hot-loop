@@ -16,8 +16,7 @@ use super::super::models_core::mask::mask;
 use crate::utils::gguf::Gguf;
 use super::transformers::LayerWeights;
 
-#[derive(Clone)]
-pub struct Qwen3(Arc<Qwen3Inner>);
+pub struct Qwen3(Qwen3Inner);
 
 impl Qwen3 {
     pub fn load<M, T>(
@@ -30,7 +29,7 @@ impl Qwen3 {
         T: AsRef<[u8]>,
     {
         let model = Qwen3Inner::load(model, tokenizer, device)?;
-        Ok(Self(Arc::new(model)))
+        Ok(Self(model))
     }
 }
 
