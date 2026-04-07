@@ -16,17 +16,6 @@
 
 ---
 
-# Not recommended for production
-## Bugs:
-
-- integrity of history.
-- The model does not have the ability to write eos token to KvCache.
-- torn chat template.
-
-a fix is being worked on.
-
----
-
 [![Crates.io](https://img.shields.io/crates/v/hot-loop.svg)](https://crates.io/crates/hot-loop)
 
 # Quick Start
