@@ -14,7 +14,6 @@ pub struct Generation<'session, M: Model> {
     tokens_prefill: Option<Vec<u32>>,
     all_tokens: Vec<u32>,
     settings: Settings,
-    eos_token: u32,
     logits_processor: LogitsProcessor,
     tos: &'session mut TokenOutputStream,
     kv_cache: &'session mut KvCache
@@ -28,7 +27,6 @@ impl<'session, M: Model> Generation<'session, M> {
         settings: Settings,
         tos: &'session mut TokenOutputStream,
         kv_cache: &'session mut KvCache,
-        eos_token: u32,
     ) -> Self {
         Self {
             model,
@@ -40,13 +38,12 @@ impl<'session, M: Model> Generation<'session, M> {
             settings,
             tos,
             kv_cache,
-            eos_token,
         }
     }
 
     pub fn next_chunk(&mut self) -> Result<Option<String>, Error> {
         loop {
-            if self.settings.sample_len <= self.index || self.next_token == self.eos_token {
+            if self.settings.sample_len <= self.index || self.next_token == self.model.eos_token() {
                 return Ok(None);
             }
 

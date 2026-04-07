@@ -74,7 +74,6 @@ impl<M: Model> Session<M> {
             self.settings,
             &mut self.tos,
             &mut self.kv_cache,
-            self.model.eos_token(),
         ))
     }
 
