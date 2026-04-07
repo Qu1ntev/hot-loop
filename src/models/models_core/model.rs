@@ -2,7 +2,7 @@ use std::ops::Deref;
 use candle_core::{Device, Result as CandleResult, Tensor};
 use crate::{session::Session, Error};
 use crate::utils::kv_cache::KvCache;
-use crate::session::history::Role;
+use crate::session::history::Message;
 use tokenizers::Tokenizer;
 
 #[doc(hidden)]
@@ -15,9 +15,7 @@ pub trait ModelWeights {
 
     fn device(&self) -> &Device;
 
-    fn fmt_prompt(&self, prompt: &str, role: Role) -> Result<Vec<u32>, Error>;
-    
-    fn assistant_start_template(&self) -> Vec<u32>;
+    fn fmt_history(&self, history: &[Message]) -> Result<Vec<u32>, Error>;
     
     fn eos_token(&self) -> u32;
 }
@@ -50,12 +48,8 @@ impl<M: Deref<Target: ModelWeights>> ModelWeights for M {
         self.deref().device()
     }
 
-    fn fmt_prompt(&self, prompt: &str, role: Role) -> Result<Vec<u32>, Error> {
-        self.deref().fmt_prompt(prompt, role)
-    }
-
-    fn assistant_start_template(&self) -> Vec<u32> {
-        self.deref().assistant_start_template()
+    fn fmt_history(&self, history: &[Message]) -> Result<Vec<u32>, Error> {
+        self.deref().fmt_history(history)
     }
 
     fn eos_token(&self) -> u32 {

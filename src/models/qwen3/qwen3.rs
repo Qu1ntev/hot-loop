@@ -4,65 +4,16 @@ use candle_core::quantized::{gguf_file};
 use candle_core::{DType, Device, Result as CandleResult, Tensor};
 use candle_nn::{Embedding, Module};
 use std::io::{Read, Seek};
-// use std::sync::Arc;
 use crate::Error;
 use crate::utils::kv_cache::KvCache;
 use tokenizers::Tokenizer;
 use super::ChatFormat;
-use crate::session::history::Role;
+use crate::session::history::Message;
 use super::super::models_core::model::ModelWeights;
 use super::super::models_core::rotary_embedding::RotaryEmbedding;
 use super::super::models_core::mask::mask;
 use crate::utils::gguf::Gguf;
 use super::transformers::LayerWeights;
-
-// #[derive(Clone)]
-// pub struct Qwen3(Arc<Qwen3Inner>);
-//
-// impl Qwen3 {
-//     pub fn load<M, T>(
-//         model: &mut M,
-//         tokenizer: T,
-//         device: Device,
-//     ) -> Result<Self, Error>
-//     where
-//         M: Read + Seek,
-//         T: AsRef<[u8]>,
-//     {
-//         let model = Qwen3Inner::load(model, tokenizer, device)?;
-//         Ok(Self(Arc::new(model)))
-//     }
-// }
-
-// impl ModelWeights for Qwen3 {
-//     fn forward(&self, input: &Tensor, offset: usize, kv_cache: &mut KvCache) -> CandleResult<Tensor> {
-//         self.0.forward(input, offset, kv_cache)
-//     }
-//
-//     fn layers_len(&self) -> usize {
-//         self.0.layers_len()
-//     }
-//
-//     fn tokenizer(&self) -> &Tokenizer {
-//         self.0.tokenizer()
-//     }
-//
-//     fn device(&self) -> &Device {
-//         &self.0.device()
-//     }
-//
-//     fn fmt_prompt(&self, prompt: &str, role: Role) -> Result<Vec<u32>, Error> {
-//         self.0.fmt_prompt(prompt, role)
-//     }
-//
-//     fn assistant_start_template(&self) -> Vec<u32> {
-//         self.0.assistant_start_template()
-//     }
-//
-//     fn eos_token(&self) -> u32 {
-//         self.0.eos_token()
-//     }
-// }
 
 impl ModelWeights for Qwen3 {
     fn forward(&self, input: &Tensor, offset: usize, kv_cache: &mut KvCache) -> CandleResult<Tensor> {
@@ -81,12 +32,8 @@ impl ModelWeights for Qwen3 {
         &self.device()
     }
 
-    fn fmt_prompt(&self, prompt: &str, role: Role) -> Result<Vec<u32>, Error> {
-        self.fmt_prompt(prompt, role)
-    }
-
-    fn assistant_start_template(&self) -> Vec<u32> {
-        self.assistant_start_template()
+    fn fmt_history(&self, history: &[Message]) -> Result<Vec<u32>, Error> {
+        self.fmt_history(history)
     }
 
     fn eos_token(&self) -> u32 {
@@ -217,12 +164,8 @@ impl Qwen3 {
         &self.device
     }
 
-    fn fmt_prompt(&self, prompt: &str, role: Role) -> Result<Vec<u32>, Error> {
-        self.chat_format.fmt_prompt(&self.tokenizer, prompt, role)
-    }
-
-    fn assistant_start_template(&self) -> Vec<u32> {
-        self.chat_format.assistant_start_template()
+    fn fmt_history(&self, history: &[Message]) -> Result<Vec<u32>, Error> {
+        self.chat_format.fmt_history(&self.tokenizer, history)
     }
 
     fn eos_token(&self) -> u32 {

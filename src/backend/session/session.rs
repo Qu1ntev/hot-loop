@@ -1,10 +1,9 @@
 use candle_transformers::generation::{LogitsProcessor, Sampling};
-use candle_core::Tensor;
 use super::Generation;
 use crate::settings::{Settings, Seed};
 use crate::Error;
 use crate::Model;
-use crate::session::history::Role;
+use crate::session::history::Message;
 use crate::utils::kv_cache::KvCache;
 use crate::utils::token_output_stream::TokenOutputStream;
 
@@ -14,7 +13,6 @@ pub struct Session<M: Model> {
     settings: Settings,
     kv_cache: KvCache,
     tos: TokenOutputStream,
-    system_prompt_pos: Option<usize>,
 }
 
 impl<M: Model> Session<M> {
@@ -31,20 +29,12 @@ impl<M: Model> Session<M> {
             settings,
             kv_cache,
             tos,
-            system_prompt_pos: None,
         }
     }
 
-    pub fn generate(&mut self, prompt: &str) -> Result<Generation<'_, M>, Error> {
-        let user_tokens = self.model.fmt_prompt(prompt, Role::User)?;
-        let assistant_start_tokens = self.model.assistant_start_template();
-
-        let mut tokens = Vec::with_capacity(
-            user_tokens.len() + assistant_start_tokens.len()
-        );
-
-        tokens.extend_from_slice(&user_tokens);
-        tokens.extend_from_slice(&assistant_start_tokens);
+    pub fn generate(&mut self, history: &[Message]) -> Result<Generation<'_, M>, Error> {
+        self.kv_cache.clear();
+        let tokens = self.model.fmt_history(history)?;
 
         let logits_processor = {
             let temperature = self.settings.temperature;
@@ -86,34 +76,7 @@ impl<M: Model> Session<M> {
         self.settings = settings;
     }
 
-    pub fn with_system_prompt(mut self, system_prompt: &str) -> Result<Self, Error> {
-        self.set_system_prompt_and_clear_history(system_prompt)?;
-        Ok(self)
-    }
-
-    pub fn set_system_prompt_and_clear_history(&mut self, system_prompt: &str) -> Result<(), Error> {
-        self.kv_cache.clear();
-
-        let sys_tokens = self.model.fmt_prompt(system_prompt, Role::System)?;
-        let input = Tensor::new(sys_tokens, self.model.device())?.unsqueeze(0)?;
-        let _ = self.model.forward(&input, 0, &mut self.kv_cache)?;
-
-        let current_pos = self.kv_cache.current_pos();
-
-        self.system_prompt_pos = Some(current_pos);
-
-        Ok(())
-    }
-
-    pub fn clear_history(&mut self) -> Result<(), Error> {
-        match self.system_prompt_pos {
-            Some(pos) => self.kv_cache.truncate(pos)?,
-            None => self.kv_cache.clear()
-        }
-        Ok(())
-    }
-
-    pub fn clear_system_prompt_and_history(&mut self) {
-        self.kv_cache.clear();
-    }
+    // pub fn clear_cache(&mut self) {
+    //     self.kv_cache.clear();
+    // }
 }

@@ -40,6 +40,7 @@ use std::io::{stdout, Write};
 use hot_loop::{
     Model,
     models::Qwen3,
+    session::history::{Message, Role},
     Device,
     Error,
 };
@@ -55,8 +56,12 @@ fn main() -> Result<(), Error> {
     // and more sessions!
     // let mut session2 = Session::new(Arc::new(model));
     // let mut session3 = (&model).new_session();
-
-    let mut generate = session.generate("Hello!")?;
+    
+    let history = vec![
+        Message::new(Role::User, "Hello!")
+    ];
+    
+    let mut generate = session.generate(&history)?;
 
     while let Some(chunk) = generate.next_chunk()? {
         print!("{chunk}");
@@ -125,6 +130,7 @@ use std::fs::{File, read};
 use hot_loop::{
     models::Qwen3,
     session::{Session, Generation},
+    session::history::{Message, Role},
     Model, // trait
     Device,
     Error
@@ -146,7 +152,11 @@ fn main() -> Result<(), Error> {
     let mut session: Session<Qwen3> = model.new_session();
     func2(&mut session);
 
-    let mut generation: Generation<Qwen3> = session.generate("Hello")?;
+    let history = vec![
+        Message::new(Role::User, "Hello!")
+    ];
+    
+    let mut generation: Generation<Qwen3> = session.generate(&history)?;
     func3(&mut generation);
 
     Ok(())
@@ -200,10 +210,12 @@ fn main() -> Result<(), Error> {
 
 ```rust
 use std::fs::{File, read};
+use std::io::{stdout, Write};
 
 use hot_loop::{
     Model,
     models::Qwen3,
+    session::history::{Message, Role},
     Device,
     Error,
 };
@@ -214,16 +226,19 @@ fn main() -> Result<(), Error> {
 
     let model = Qwen3::load(&mut model_file, &tokenizer_bytes, Device::Cpu)?;
 
-    let sys_prompt = "always answer in json!";
+    let mut history = vec![ // set system prompt
+        Message::new(Role::System, "always answer in json!")
+    ];
 
-    let mut session = model.new_session()
-        .with_system_prompt(sys_prompt)?; // set system prompt
+    let mut session = model.new_session();
+    history.push(Message::new(Role::User, "Hello!"));
+    
+    let mut generate = session.generate(&history)?;
 
-    // OR
-    session.set_system_prompt_and_clear_history(sys_prompt)?;
-    
-    
-    session.clear_system_prompt_and_history(); // clear system prompt
+    while let Some(chunk) = generate.next_chunk()? {
+        print!("{chunk}");
+        stdout().flush().unwrap();
+    }
 
     Ok(())
 }
@@ -235,10 +250,12 @@ fn main() -> Result<(), Error> {
 
 ```rust
 use std::fs::{File, read};
+use std::io::{stdout, Write};
 
 use hot_loop::{
     Model,
     models::Qwen3,
+    session::history::{Message, Role},
     Device,
     Error,
 };
@@ -251,15 +268,23 @@ fn main() -> Result<(), Error> {
     let mut session = model.new_session();
 
     let questions = ["Hello!", "what can you do?", "ok"];
+    let mut history = vec![];
 
     for question in questions {
-        let mut generate = session.generate(question)?;
-        while let Some(_) = generate.next_chunk()? {
-            // model answers
+        history.push(Message::new(Role::User, question));
+        let mut answer = String::new();
+        
+        let mut generate = session.generate(&history)?;
+        while let Some(chunk) = generate.next_chunk()? {
+            print!("{chunk}");
+            stdout().flush().unwrap();
+            answer.push_str(&chunk);
         }
+        
+        history.push(Message::new(Role::Assistant, answer)); // update history
     }
 
-    session.clear_history(); // clear history
+    history.clear(); // clear history
 
     Ok(())
 }
@@ -278,13 +303,16 @@ use hot_loop::{
     Model,
     models::{Qwen3},
     session::Session,
+    session::history::{Message, Role},
     Device,
     Error,
 };
 
 fn generate<M: Model>(mut session: Session<M>, prompt: &str) -> Result<String, Error> {
+    let history = vec![Message::new(Role::User, prompt)];
     let mut answer = String::new();
-    let mut generate = session.generate(prompt)?;
+    
+    let mut generate = session.generate(&history)?;
 
     while let Some(chunk) = generate.next_chunk()? {
         answer.push_str(&chunk);

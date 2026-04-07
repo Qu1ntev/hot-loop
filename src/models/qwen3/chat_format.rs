@@ -1,6 +1,6 @@
 use tokenizers::Tokenizer;
 use crate::Error;
-use crate::session::history::Role;
+use crate::session::history::{Message, Role};
 
 const IM_START: &str =  "<|im_start|>";
 const IM_END: &str =    "<|im_end|>";
@@ -56,40 +56,43 @@ impl ChatFormat {
     /// ```rust
     /// "<|im_start|>{role}\n{prompt}<|im_end|>\n"
     /// ```
-    pub fn fmt_prompt(
+    pub fn fmt_history(
         &self,
         tokenizer: &Tokenizer,
-        prompt: &str,
-        role: Role
+        history: &[Message],
     ) -> Result<Vec<u32>, Error> {
-        let role = match role {
-            Role::System => self.system,
-            Role::User => self.user,
-            Role::Assistant => self.assistant,
-        };
+        let mut tokens = Vec::new();
+        
+        for message in history {
+            let role = message.role;
+            let text = message.text.as_str();
 
-        let left = [self.im_start, role, self.new_line];
-        let right = [self.im_end, self.new_line];
+            let role = match role {
+                Role::System => self.system,
+                Role::User => self.user,
+                Role::Assistant => self.assistant,
+            };
 
-        let prompt = tokenizer.encode(prompt, false)?;
+            let left = [self.im_start, role, self.new_line];
+            let right = [self.im_end, self.new_line];
 
-        let mut tokens = Vec::with_capacity(
-            left.len() + prompt.get_ids().len() + right.len()
-        );
+            let text_tk = tokenizer.encode(text, false)?;
 
-        tokens.extend_from_slice(&left);
-        tokens.extend_from_slice(prompt.get_ids());
-        tokens.extend_from_slice(&right);
+            let mut tk = Vec::with_capacity(
+                left.len() + text_tk.get_ids().len() + right.len()
+            );
 
+            tk.extend_from_slice(&left);
+            tk.extend_from_slice(text_tk.get_ids());
+            tk.extend_from_slice(&right);
+            
+            tokens.extend_from_slice(&tk);
+        }
+        
+        let start_template = [self.im_start, self.assistant, self.new_line];
+        tokens.extend_from_slice(&start_template);
+        
         Ok(tokens)
-    }
-    
-    /// ## output ids:
-    /// ```rust
-    /// "<|im_start|>assistant\n"
-    /// ```
-    pub fn assistant_start_template(&self) -> Vec<u32> { // FIX!!! think mode
-        vec![self.im_start, self.assistant, self.new_line]
     }
     
     pub fn eos_token(&self) -> u32 {
