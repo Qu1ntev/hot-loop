@@ -13,11 +13,12 @@ pub struct Generation<'session, M: Model> {
     index: usize,
     next_token: u32,
     tokens_prefill: Option<Vec<u32>>,
-    all_tokens: Vec<u32>,
+    start_model_index: usize,
     settings: Settings,
     logits_processor: LogitsProcessor,
     tos: &'session mut TokenOutputStream,
-    kv_cache: &'session mut KvCache
+    kv_cache: &'session mut KvCache,
+    cached_tokens: &'session mut Vec<u32>
 }
 
 impl<'session, M: Model> Generation<'session, M> {
@@ -28,17 +29,19 @@ impl<'session, M: Model> Generation<'session, M> {
         settings: Settings,
         tos: &'session mut TokenOutputStream,
         kv_cache: &'session mut KvCache,
+        cached_tokens: &'session mut Vec<u32>
     ) -> Self {
         Self {
             model,
             index: 0,
             next_token: 0,
-            all_tokens: Vec::new(),
+            start_model_index: cached_tokens.len(),
             tokens_prefill: Some(tokens_prefill),
             logits_processor,
             settings,
             tos,
             kv_cache,
+            cached_tokens,
         }
     }
 
@@ -53,7 +56,7 @@ impl<'session, M: Model> Generation<'session, M> {
             let logits = self.apply_repeat_penalty(logits)?;
 
             self.next_token = self.logits_processor.sample(&logits)?;
-            self.all_tokens.push(self.next_token);
+            self.cached_tokens.push(self.next_token);
 
             self.index += 1;
 
@@ -99,11 +102,13 @@ impl<'session, M: Model> Generation<'session, M> {
         if self.settings.repeat_penalty == 1. {
             Ok(logits)
         } else {
-            let start_at = self.all_tokens.len().saturating_sub(self.settings.repeat_last_n);
+            let assistant_tokens = &self.cached_tokens[self.start_model_index..];
+            let start_at = assistant_tokens.len().saturating_sub(self.settings.repeat_last_n);
+
             candle_transformers::utils::apply_repeat_penalty(
                 &logits,
                 self.settings.repeat_penalty,
-                &self.all_tokens[start_at..],
+                &assistant_tokens[start_at..],
             )
         }
     }

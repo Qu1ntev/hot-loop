@@ -13,6 +13,7 @@ pub struct Session<M: Model> {
     settings: Settings,
     kv_cache: KvCache,
     tos: TokenOutputStream,
+    cached_tokens: Vec<u32>
 }
 
 impl<M: Model> Session<M> {
@@ -29,12 +30,19 @@ impl<M: Model> Session<M> {
             settings,
             kv_cache,
             tos,
+            cached_tokens: Vec::new()
         }
     }
 
     pub fn generate(&mut self, history: &[Message]) -> Result<Generation<'_, M>, Error> {
-        self.kv_cache.clear();
         let tokens = self.model.fmt_history(history)?;
+
+        let mask = self.history_mask(&tokens);
+        self.kv_cache.truncate(mask)?;
+        self.cached_tokens.truncate(mask);
+
+        let tokens = tokens[mask..].to_vec();
+        self.cached_tokens.extend_from_slice(&tokens);
 
         let sampling = self.sampling();
         let seed = self.seed();
@@ -49,7 +57,15 @@ impl<M: Model> Session<M> {
             self.settings,
             &mut self.tos,
             &mut self.kv_cache,
+            &mut self.cached_tokens,
         ))
+    }
+
+    fn history_mask(&self, tokens: &[u32]) -> usize {
+        self.cached_tokens.iter()
+            .zip(tokens.iter())
+            .take_while(|(a, b)| a == b)
+            .count()
     }
     
     fn sampling(&self) -> Sampling {
@@ -85,5 +101,6 @@ impl<M: Model> Session<M> {
 
     pub fn clear_cache(&mut self) {
         self.kv_cache.clear();
+        self.cached_tokens.clear();
     }
 }
