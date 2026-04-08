@@ -115,6 +115,7 @@ Qwen3::load(.., .., Device::new_cuda(0)?)?
 
 ```rust
 use std::fs::{File, read};
+use std::sync::Arc;
 
 use hot_loop::{
     models::Qwen3,
@@ -125,10 +126,8 @@ use hot_loop::{
     Error
 };
 
-fn func1<M: Model>(_model: &M) {}
-
+fn func1<M: Model>(_model: M) {}
 fn func2(_session: &mut Session<impl Model>) {}
-
 fn func3(_generation: &mut Generation<impl Model>) {}
 
 fn main() -> Result<(), Error> {
@@ -144,9 +143,21 @@ fn main() -> Result<(), Error> {
     let history = vec![
         Message::new(Role::User, "Hello!")
     ];
-    
+
     let mut generation: Generation<Qwen3> = session.generate(&history)?;
     func3(&mut generation);
+
+    let model: Qwen3 = Qwen3::load(&mut model_file, &tokenizer_bytes, Device::Cpu)?;
+    let model_ref: &Qwen3 = &Qwen3::load(&mut model_file, &tokenizer_bytes, Device::Cpu)?;
+    let model_arc: Arc<Qwen3> = Arc::new(Qwen3::load(&mut model_file, &tokenizer_bytes, Device::Cpu)?);
+    let model_arc_dyn: Arc<dyn Model> = Arc::new(Qwen3::load(&mut model_file, &tokenizer_bytes, Device::Cpu)?);
+    let model_box_dyn: Box<dyn Model> = Box::new(Qwen3::load(&mut model_file, &tokenizer_bytes, Device::Cpu)?);
+
+    let _session: Session<Qwen3> = model.new_session();
+    let _session: Session<&Qwen3> = model_ref.new_session();
+    let _session: Session<Arc<Qwen3>> = model_arc.new_session();
+    let _session: Session<Arc<dyn Model>> = model_arc_dyn.new_session();
+    let _session: Session<Box<dyn Model>> = model_box_dyn.new_session();
 
     Ok(())
 }
