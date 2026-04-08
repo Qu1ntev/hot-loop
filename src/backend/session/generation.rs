@@ -1,4 +1,5 @@
 use candle_core::Tensor;
+use candle_core::Result as CandleResult;
 use candle_transformers::generation::LogitsProcessor;
 use crate::settings::Settings;
 use crate::Error;
@@ -43,42 +44,67 @@ impl<'session, M: Model> Generation<'session, M> {
 
     pub fn next_chunk(&mut self) -> Result<Option<String>, Error> {
         loop {
-            if self.settings.sample_len <= self.index || self.next_token == self.model.eos_token() {
+            if self.is_len_limit() {
                 return Ok(None);
             }
 
-            let current_pos = self.kv_cache.current_pos();
+            let logits = self.model_infer()?;
 
-            let input = if self.index == 0 &&
-                let Some(tokens_prefill) = self.tokens_prefill.take() {
-                Tensor::new(tokens_prefill.as_slice(), self.model.device())?.unsqueeze(0)?
-
-            } else {
-                Tensor::new(&[self.next_token], self.model.device())?.unsqueeze(0)?
-            };
-
-            let logits = self.model.forward(&input, current_pos, &mut self.kv_cache)?;
-            let logits = logits.squeeze(0)?;
-
-            let logits = if self.settings.repeat_penalty == 1. {
-                logits
-            } else {
-                let start_at = self.all_tokens.len().saturating_sub(self.settings.repeat_last_n);
-                candle_transformers::utils::apply_repeat_penalty(
-                    &logits,
-                    self.settings.repeat_penalty,
-                    &self.all_tokens[start_at..],
-                )?
-            };
+            let logits = self.apply_repeat_penalty(logits)?;
 
             self.next_token = self.logits_processor.sample(&logits)?;
             self.all_tokens.push(self.next_token);
 
             self.index += 1;
 
-            if let Some(chunk) = self.tos.next_token(self.model.tokenizer(), self.next_token)? {
+            if self.is_model_return() {
+                return Ok(None);
+            }
+
+            if let Some(chunk) = self.has_chunk()? {
                 return Ok(Some(chunk))
             }
+        }
+    }
+
+    fn is_len_limit(&self) -> bool {
+        self.settings.sample_len <= self.index
+    }
+
+    fn is_model_return(&self) -> bool {
+        self.next_token == self.model.eos_token()
+    }
+
+    fn has_chunk(&mut self) -> CandleResult<Option<String>> {
+        self.tos.next_token(self.model.tokenizer(), self.next_token)
+    }
+
+    fn model_infer(&mut self) -> CandleResult<Tensor> {
+        let input = if self.index == 0 &&
+            let Some(tokens_prefill) = self.tokens_prefill.take() {
+            Tensor::new(tokens_prefill.as_slice(), self.model.device())?
+
+        } else {
+            Tensor::new(&[self.next_token], self.model.device())?
+        };
+        let input = input.unsqueeze(0)?;
+
+        let current_pos = self.kv_cache.current_pos();
+        let logits = self.model.forward(&input, current_pos, &mut self.kv_cache)?;
+
+        logits.squeeze(0)
+    }
+
+    fn apply_repeat_penalty(&self, logits: Tensor) -> CandleResult<Tensor> {
+        if self.settings.repeat_penalty == 1. {
+            Ok(logits)
+        } else {
+            let start_at = self.all_tokens.len().saturating_sub(self.settings.repeat_last_n);
+            candle_transformers::utils::apply_repeat_penalty(
+                &logits,
+                self.settings.repeat_penalty,
+                &self.all_tokens[start_at..],
+            )
         }
     }
 }
