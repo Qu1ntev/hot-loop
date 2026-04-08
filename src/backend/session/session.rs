@@ -36,26 +36,11 @@ impl<M: Model> Session<M> {
         self.kv_cache.clear();
         let tokens = self.model.fmt_history(history)?;
 
-        let logits_processor = {
-            let temperature = self.settings.temperature;
-            let sampling = if temperature <= 0. {
-                Sampling::ArgMax
-            } else {
-                match (self.settings.top_k, self.settings.top_p) {
-                    (None, None) => Sampling::All { temperature },
-                    (Some(k), None) => Sampling::TopK { k, temperature },
-                    (None, Some(p)) => Sampling::TopP { p, temperature },
-                    (Some(k), Some(p)) => Sampling::TopKThenTopP { k, p, temperature },
-                }
-            };
+        let sampling = self.sampling();
+        let seed = self.seed();
 
-            let seed = match self.settings.seed {
-                Seed::Custom(seed) => seed,
-                Seed::Random => rand::random()
-            };
-
-            LogitsProcessor::from_sampling(seed, sampling)
-        };
+        let logits_processor =
+            LogitsProcessor::from_sampling(seed, sampling);
 
         Ok(Generation::new(
             &self.model,
@@ -65,6 +50,28 @@ impl<M: Model> Session<M> {
             &mut self.tos,
             &mut self.kv_cache,
         ))
+    }
+    
+    fn sampling(&self) -> Sampling {
+        let temperature = self.settings.temperature;
+
+        if temperature <= 0. {
+            Sampling::ArgMax
+        } else {
+            match (self.settings.top_k, self.settings.top_p) {
+                (None, None) => Sampling::All { temperature },
+                (Some(k), None) => Sampling::TopK { k, temperature },
+                (None, Some(p)) => Sampling::TopP { p, temperature },
+                (Some(k), Some(p)) => Sampling::TopKThenTopP { k, p, temperature },
+            }
+        }
+    }
+
+    fn seed(&self) -> u64 {
+        match self.settings.seed {
+            Seed::Custom(seed) => seed,
+            Seed::Random => rand::random()
+        }
     }
 
     pub fn with_settings(mut self, settings: Settings) -> Self {
@@ -76,7 +83,7 @@ impl<M: Model> Session<M> {
         self.settings = settings;
     }
 
-    // pub fn clear_cache(&mut self) {
-    //     self.kv_cache.clear();
-    // }
+    pub fn clear_cache(&mut self) {
+        self.kv_cache.clear();
+    }
 }
