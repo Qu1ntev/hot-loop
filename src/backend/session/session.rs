@@ -13,7 +13,6 @@ pub struct Session<M: Model> {
     settings: Settings,
     kv_cache: KvCache,
     tos: TokenOutputStream,
-    cached_tokens: Vec<u32>
 }
 
 impl<M: Model> Session<M> {
@@ -30,20 +29,12 @@ impl<M: Model> Session<M> {
             settings,
             kv_cache,
             tos,
-            cached_tokens: Vec::new()
         }
     }
 
     pub fn generate(&mut self, history: &[Message]) -> Result<Generation<'_, M>, Error> {
-        let new_tokens = self.model.fmt_history(history)?;
-
-        let mask = self.history_mask(&new_tokens);
-        self.kv_cache.truncate(mask)?;
-        self.cached_tokens.truncate(mask);
-
-        let tokens = new_tokens[mask.saturating_sub(1)..].to_vec();
-
-        self.cached_tokens.extend_from_slice(&tokens);
+        self.kv_cache.clear();
+        let tokens = self.model.fmt_history(history)?;
 
         let sampling = self.sampling();
         let seed = self.seed();
@@ -58,20 +49,7 @@ impl<M: Model> Session<M> {
             self.settings,
             &mut self.tos,
             &mut self.kv_cache,
-            &mut self.cached_tokens,
         ))
-    }
-
-    // for debug
-    // pub fn get_cached(&self) -> Result<String, Error> {
-    //     Ok(self.model.tokenizer().decode(&self.cached_tokens, false)?)
-    // }
-
-    fn history_mask(&self, tokens: &[u32]) -> usize {
-        self.cached_tokens.iter()
-            .zip(tokens.iter())
-            .take_while(|(a, b)| a == b)
-            .count()
     }
     
     fn sampling(&self) -> Sampling {
@@ -103,10 +81,5 @@ impl<M: Model> Session<M> {
 
     pub fn set_settings(&mut self, settings: Settings) {
         self.settings = settings;
-    }
-
-    pub fn clear_cache(&mut self) {
-        self.kv_cache.clear();
-        self.cached_tokens.clear();
     }
 }
