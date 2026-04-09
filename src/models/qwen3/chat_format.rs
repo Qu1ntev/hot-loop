@@ -1,6 +1,6 @@
 use tokenizers::Tokenizer;
 use crate::Error;
-use crate::session::history::{Message, Role};
+use crate::session::history::{History, Msg, Role};
 
 const IM_START: &str =  "<|im_start|>";
 const IM_END: &str =    "<|im_end|>";
@@ -56,16 +56,19 @@ impl ChatFormat {
     /// ```rust
     /// "<|im_start|>{role}\n{prompt}<|im_end|>\n"
     /// ```
-    pub fn fmt_history(
+    pub fn fmt_history<H>(
         &self,
         tokenizer: &Tokenizer,
-        history: &[Message],
-    ) -> Result<Vec<u32>, Error> {
+        history: H,
+    ) -> Result<Vec<u32>, Error>
+    where
+        H: History,
+    {
         let mut tokens = Vec::new();
         
-        for message in history {
-            let role = message.role;
-            let text = message.text.as_str();
+        for message in history.read() {
+            let role = message.role();
+            let text = message.text();
 
             let role = match role {
                 Role::System => self.system,

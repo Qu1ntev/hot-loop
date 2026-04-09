@@ -3,7 +3,7 @@ use super::Generation;
 use crate::settings::{Settings, Seed};
 use crate::Error;
 use crate::Model;
-use crate::session::history::Message;
+use super::history::History;
 use crate::utils::kv_cache::KvCache;
 use crate::utils::token_output_stream::TokenOutputStream;
 
@@ -32,7 +32,7 @@ impl<M: Model> Session<M> {
         }
     }
 
-    pub fn generate(&mut self, history: &[Message]) -> Result<Generation<'_, M>, Error> {
+    pub fn generate<H: History>(&mut self, history: H) -> Result<Generation<'_, M>, Error> {
         self.kv_cache.clear();
         let tokens = self.model.fmt_history(history)?;
 

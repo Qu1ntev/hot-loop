@@ -8,38 +8,12 @@ use crate::Error;
 use crate::utils::kv_cache::KvCache;
 use tokenizers::Tokenizer;
 use super::ChatFormat;
-use crate::session::history::Message;
+use crate::session::history::History;
 use super::super::models_core::model::ModelWeights;
 use super::super::models_core::rotary_embedding::RotaryEmbedding;
 use super::super::models_core::mask::mask;
 use crate::utils::gguf::Gguf;
 use super::transformers::LayerWeights;
-
-impl ModelWeights for Qwen3 {
-    fn forward(&self, input: &Tensor, offset: usize, kv_cache: &mut KvCache) -> CandleResult<Tensor> {
-        self.forward(input, offset, kv_cache)
-    }
-
-    fn layers_len(&self) -> usize {
-        self.layers_len()
-    }
-
-    fn tokenizer(&self) -> &Tokenizer {
-        self.tokenizer()
-    }
-
-    fn device(&self) -> &Device {
-        &self.device()
-    }
-
-    fn fmt_history(&self, history: &[Message]) -> Result<Vec<u32>, Error> {
-        self.fmt_history(history)
-    }
-
-    fn eos_token(&self) -> u32 {
-        self.eos_token()
-    }
-}
 
 pub struct Qwen3 {
     embed_tokens: Embedding,
@@ -132,7 +106,9 @@ impl Qwen3 {
             tokenizer
         })
     }
+}
 
+impl ModelWeights for Qwen3 {
     fn forward(&self, input: &Tensor, offset: usize, kv_cache: &mut KvCache) -> CandleResult<Tensor> {
         let (b, l) = input.dims2()?;
         let mut h = self.embed_tokens.forward(input)?;
@@ -164,7 +140,7 @@ impl Qwen3 {
         &self.device
     }
 
-    fn fmt_history(&self, history: &[Message]) -> Result<Vec<u32>, Error> {
+    fn fmt_history<H: History>(&self, history: H) -> Result<Vec<u32>, Error> {
         self.chat_format.fmt_history(&self.tokenizer, history)
     }
 
