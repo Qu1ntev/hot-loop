@@ -33,3 +33,6 @@ cuda = ["candle-core/cuda", "candle-transformers/cuda", "candle-nn/cuda"]
 
 [profile.dev.package."*"]
 opt-level = 3
+
+[lib]
+doctest = false

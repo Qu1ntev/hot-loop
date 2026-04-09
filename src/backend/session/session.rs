@@ -35,13 +35,14 @@ impl<M: Model> Session<M> {
     }
 
     pub fn generate(&mut self, history: &[Message]) -> Result<Generation<'_, M>, Error> {
-        let tokens = self.model.fmt_history(history)?;
+        let new_tokens = self.model.fmt_history(history)?;
 
-        let mask = self.history_mask(&tokens);
+        let mask = self.history_mask(&new_tokens);
         self.kv_cache.truncate(mask)?;
         self.cached_tokens.truncate(mask);
 
-        let tokens = tokens[mask..].to_vec();
+        let tokens = new_tokens[mask.saturating_sub(1)..].to_vec();
+
         self.cached_tokens.extend_from_slice(&tokens);
 
         let sampling = self.sampling();
@@ -60,6 +61,11 @@ impl<M: Model> Session<M> {
             &mut self.cached_tokens,
         ))
     }
+
+    // for debug
+    // pub fn get_cached(&self) -> Result<String, Error> {
+    //     Ok(self.model.tokenizer().decode(&self.cached_tokens, false)?)
+    // }
 
     fn history_mask(&self, tokens: &[u32]) -> usize {
         self.cached_tokens.iter()

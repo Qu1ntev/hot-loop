@@ -3,3 +3,6 @@ rustflags = ["-C", "target-cpu=native"]
 
 [env]
 NVCC_PREPEND_FLAGS = "-allow-unsupported-compiler"
+
+[alias]
+cloop = "test --release --features cuda -- --nocapture --test-threads=1"
