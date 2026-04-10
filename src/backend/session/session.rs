@@ -82,7 +82,7 @@ impl<M: Model> Session<M> {
         self.settings = settings;
     }
 
-    pub fn clear_cache(&mut self) {
-        self.kv_cache.clear();
-    }
+    // pub fn clear_cache(&mut self) {
+    //     self.kv_cache.clear();
+    // }
 }
