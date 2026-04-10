@@ -112,5 +112,6 @@ impl<'session, M: Model> Generation<'session, M> {
 impl<'session, M: Model> Drop for Generation<'session, M> {
     fn drop(&mut self) {
         self.tos.clear();
+        self.kv_cache.clear();
     }
 }

@@ -33,7 +33,6 @@ impl<M: Model> Session<M> {
     }
 
     pub fn generate(&mut self, history: &[Message]) -> Result<Generation<'_, M>, Error> {
-        self.kv_cache.clear();
         let tokens = self.model.fmt_history(history)?;
 
         let sampling = self.sampling();
