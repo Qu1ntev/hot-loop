@@ -23,23 +23,23 @@
 ### Install: ```cargo add hot-loop```
 
 ```rust
-use std::fs::{File, read};
+use std::fs::File;
 use std::io::{stdout, Write};
 
 use hot_loop::{
     Model,
-    models::Qwen3,
+    models::qwen3::Qwen3Loader,
     session::history::{Message, Role},
     Device,
     Error,
 };
 
 fn main() -> Result<(), Error> {
-    let mut model_file = File::open("models/Qwen3-4B-it-Q4_K_M.gguf").unwrap();
-    let tokenizer_bytes = read("models/tokenizer.json").unwrap();
+    let model_file = File::open("models/Qwen3-4B-it-Q4_K_M.gguf").unwrap();
 
     // model read only
-    let model = Qwen3::load(&mut model_file, &tokenizer_bytes, Device::Cpu)?;
+    let model = Qwen3Loader::new(model_file)
+        .load(Device::Cpu)?;
 
     let mut session = model.new_session();
     // and more sessions!
@@ -118,7 +118,7 @@ use std::fs::{File, read};
 use std::sync::Arc;
 
 use hot_loop::{
-    models::Qwen3,
+    models::qwen3::Qwen3Loader,
     session::{Session, Generation},
     session::history::{Message, Role},
     Model, // trait
@@ -131,10 +131,14 @@ fn func2(_session: &mut Session<impl Model>) {}
 fn func3(_generation: &mut Generation<impl Model>) {}
 
 fn main() -> Result<(), Error> {
-    let mut model_file = File::open("Qwen3.gguf").unwrap();
+    let model_file = File::open("Qwen3.gguf").unwrap();
     let tokenizer_bytes = read("tokenizer.json").unwrap();
 
-    let model = Qwen3::load(&mut model_file, &tokenizer_bytes, Device::Cpu)?;
+    let model = Qwen3Loader::new(model_file)
+        .with_tokenizer(tokenizer_bytes)
+        .with_dtype(Dtype::F16)
+        .load(Device::Cpu)?;
+    
     func1(&model);
 
     let mut session: Session<Qwen3> = model.new_session();
@@ -147,11 +151,11 @@ fn main() -> Result<(), Error> {
     let mut generation: Generation<Qwen3> = session.generate(&history)?;
     func3(&mut generation);
 
-    let model: Qwen3 = Qwen3::load(&mut model_file, &tokenizer_bytes, Device::Cpu)?;
-    let model_ref: &Qwen3 = &Qwen3::load(&mut model_file, &tokenizer_bytes, Device::Cpu)?;
-    let model_arc: Arc<Qwen3> = Arc::new(Qwen3::load(&mut model_file, &tokenizer_bytes, Device::Cpu)?);
-    let model_arc_dyn: Arc<dyn Model> = Arc::new(Qwen3::load(&mut model_file, &tokenizer_bytes, Device::Cpu)?);
-    let model_box_dyn: Box<dyn Model> = Box::new(Qwen3::load(&mut model_file, &tokenizer_bytes, Device::Cpu)?);
+    let model: Qwen3 = model.clone();
+    let model_ref: &Qwen3 = &model.clone();
+    let model_arc: Arc<Qwen3> = Arc::new(model.clone());
+    let model_arc_dyn: Arc<dyn Model> = Arc::new(model.clone());
+    let model_box_dyn: Box<dyn Model> = Box::new(model.clone());
 
     let _session: Session<Qwen3> = model.new_session();
     let _session: Session<&Qwen3> = model_ref.new_session();
@@ -168,21 +172,21 @@ fn main() -> Result<(), Error> {
 # Session Settings
 
 ```rust
-use std::fs::{File, read};
+use std::fs::File;
 
 use hot_loop::{
     Model,
-    models::Qwen3,
+    models::qwen3::Qwen3Loader,
     Device,
     Error,
     settings::{Settings, Seed},
 };
 
 fn main() -> Result<(), Error> {
-    let mut model_file = File::open("Qwen3.gguf").unwrap();
-    let tokenizer_bytes = read("tokenizer.json").unwrap();
+    let model_file = File::open("Qwen3.gguf").unwrap();
 
-    let model = Qwen3::load(&mut model_file, &tokenizer_bytes, Device::Cpu)?;
+    let model = Qwen3Loader::new(model_file)
+        .load(Device::Cpu)?;
 
     let settings = Settings::default()
         .with_temperature(0.7)
@@ -209,22 +213,22 @@ fn main() -> Result<(), Error> {
 # Session System-prompt
 
 ```rust
-use std::fs::{File, read};
+use std::fs::File;
 use std::io::{stdout, Write};
 
 use hot_loop::{
     Model,
-    models::Qwen3,
+    models::qwen3::Qwen3Loader,
     session::history::{Message, Role},
     Device,
     Error,
 };
 
 fn main() -> Result<(), Error> {
-    let mut model_file = File::open("Qwen3.gguf").unwrap();
-    let tokenizer_bytes = read("tokenizer.json").unwrap();
+    let model_file = File::open("Qwen3.gguf").unwrap();
 
-    let model = Qwen3::load(&mut model_file, &tokenizer_bytes, Device::Cpu)?;
+    let model = Qwen3Loader::new(model_file)
+        .load(Device::Cpu)?;
 
     let mut history = vec![ // set system prompt
         Message::new(Role::System, "always answer in json!")
@@ -249,22 +253,23 @@ fn main() -> Result<(), Error> {
 # Session History
 
 ```rust
-use std::fs::{File, read};
+use std::fs::File;
 use std::io::{stdout, Write};
 
 use hot_loop::{
     Model,
-    models::Qwen3,
+    models::qwen3::Qwen3Loader,
     session::history::{Message, Role},
     Device,
     Error,
 };
 
 fn main() -> Result<(), Error> {
-    let mut model_file = File::open("Qwen3.gguf").unwrap();
-    let tokenizer_bytes = read("tokenizer.json").unwrap();
+    let model_file = File::open("Qwen3.gguf").unwrap();
 
-    let model = Qwen3::load(&mut model_file, &tokenizer_bytes, Device::Cpu)?;
+    let model = Qwen3Loader::new(model_file)
+        .load(Device::Cpu)?;
+    
     let mut session = model.new_session();
 
     let questions = ["Hello!", "what can you do?", "ok"];
@@ -296,12 +301,12 @@ fn main() -> Result<(), Error> {
 ### Parallelism Generation in different independent sessions
 
 ```rust
-use std::fs::{File, read};
+use std::fs::File;
 use std::thread;
 use std::sync::Arc;
 use hot_loop::{
     Model,
-    models::{Qwen3},
+    models::qwen3::Qwen3Loader,
     session::Session,
     session::history::{Message, Role},
     Device,
@@ -329,10 +334,9 @@ const QUESTIONS: [&str; 4] = [
 ];
 
 fn main() -> Result<(), Error> {
-    let mut model_file = File::open("models/Qwen3-4B-it-Q4_K_M.gguf").unwrap();
-    let tokenizer_bytes = read("models/tokenizer.json").unwrap();
+    let model_file = File::open("models/Qwen3-4B-it-Q4_K_M.gguf").unwrap();
 
-    let model = Arc::new(Qwen3::load(&mut model_file, &tokenizer_bytes, Device::Cpu)?);
+    let model = Arc::new(Qwen3Loader::new(model_file).load(Device::Cpu)?);
 
     let mut handles = Vec::new();
 

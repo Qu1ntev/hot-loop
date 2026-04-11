@@ -1,16 +1,16 @@
-use std::fs::{File, read};
+use std::fs::File;
 use std::io::{stdin, stdout, Write};
 use std::str::FromStr;
 use hot_loop::{
     Model,
-    models::Qwen3,
+    models::qwen3::Qwen3Loader,
     session::history::{Message, Role},
     Device,
     Error,
 };
 
 const MODEL_PATH: &str = "models/Qwen3-4B-it-Q4_K_M.gguf";
-const TOK_PATH: &str = "models/tokenizer.json";
+// const TOK_PATH: &str = "models/tokenizer.json";
 
 fn input<T: FromStr>() -> Result<T, Error> {
     let mut s = String::new();
@@ -25,11 +25,8 @@ fn input<T: FromStr>() -> Result<T, Error> {
 fn main() -> Result<(), Error> {
     println!("-------- | Hot-Loop Chat | --------");
 
-    let mut model_file = File::open(MODEL_PATH)
+    let model_file = File::open(MODEL_PATH)
         .expect(&format!("MODEL FILE NOT FOUND: {}", MODEL_PATH));
-
-    let tokenizer_bytes = read(TOK_PATH)
-        .expect(&format!("TOKENIZER FILE NOT FOUND: {}", TOK_PATH));
 
     let device = Device::new_cuda(0).unwrap_or(Device::Cpu);
     println!("Run with: {:?}", device);
@@ -53,7 +50,8 @@ fn main() -> Result<(), Error> {
 
     println!("Running Model...");
     // model read only
-    let model = Qwen3::load(&mut model_file, &tokenizer_bytes, Device::Cpu)?;
+    let model = Qwen3Loader::new(model_file)
+        .load(Device::Cpu)?;
 
     let mut session = model.new_session();
     // and more sessions!

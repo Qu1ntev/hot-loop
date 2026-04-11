@@ -1,9 +1,9 @@
-use std::fs::{File, read};
+use std::fs::File;
 use std::io::{stdout, Write};
 
 use hot_loop::{
     Model,
-    models::Qwen3,
+    models::qwen3::Qwen3Loader,
     session::history::{Message, Role},
     Device,
     Error,
@@ -11,10 +11,11 @@ use hot_loop::{
 
 #[test]
 fn cache_test() -> Result<(), Error> {
-    let mut model_file = File::open("models/Qwen3-4B-it-Q4_K_M.gguf").unwrap();
-    let tokenizer_bytes = read("models/tokenizer.json").unwrap();
+    let model_file = File::open("models/Qwen3-4B-it-Q4_K_M.gguf").unwrap();
+    // let tokenizer_bytes = read("models/tokenizer.json").unwrap();
 
-    let model = Qwen3::load(&mut model_file, &tokenizer_bytes, Device::Cpu)?;
+    let model = Qwen3Loader::new(model_file)
+        .load(Device::Cpu)?;
 
     let mut session = model.new_session();
 

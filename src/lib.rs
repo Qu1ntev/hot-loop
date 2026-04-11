@@ -8,6 +8,7 @@
 
 pub(crate) mod utils;
 pub use candle_core::Device;
+pub use candle_core::DType;
 
 pub mod models;
 pub use models::{
