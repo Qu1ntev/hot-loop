@@ -1,5 +1,5 @@
 use candle_core::{Tensor, Result, Module};
-use candle_transformers::models::with_tracing::QMatMul;
+use candle_core::quantized::QMatMul;
 use candle_nn::Activation;
 use std::io::{Read, Seek};
 use crate::utils::gguf::Gguf;

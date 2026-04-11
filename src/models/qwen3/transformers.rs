@@ -1,4 +1,4 @@
-use candle_transformers::models::with_tracing::QMatMul;
+use candle_core::quantized::QMatMul;
 use candle_transformers::{quantized_nn::RmsNorm, utils::repeat_kv};
 use candle_core::{Result, Tensor};
 use candle_nn::{Activation, Module};

@@ -1,9 +1,9 @@
-use candle_transformers::models::with_tracing::QMatMul;
 use candle_transformers::{quantized_nn::RmsNorm};
 use candle_core::quantized::{gguf_file::{Content, Value}, QTensor};
 use candle_core::{Device, Result};
 use std::io::{Read, Seek};
 use std::collections::HashMap;
+use candle_core::quantized::QMatMul;
 
 pub(crate) struct Gguf<'a, R: Read + Seek> {
     prefix: &'a str,
@@ -32,7 +32,7 @@ impl<'a, R: Read + Seek> Gguf<'a, R> {
 
     pub fn qmatmul(&mut self, name: &str) -> Result<QMatMul> {
         let ws = self.tensor(name)?;
-        QMatMul::from_weights(ws.into())
+        QMatMul::from_arc(ws.into())
     }
 
     pub fn rms_norm(&mut self, name: &str, eps: f64) -> Result<RmsNorm> {
