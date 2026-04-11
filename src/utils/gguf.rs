@@ -8,7 +8,7 @@ use std::collections::HashMap;
 pub(crate) struct Gguf<'a, R: Read + Seek> {
     prefix: &'a str,
     ct: &'a Content,
-    reader: &'a mut R,
+    reader: R,
     device: &'a Device,
 }
 
@@ -16,7 +16,7 @@ impl<'a, R: Read + Seek> Gguf<'a, R> {
     pub fn new(
         prefix: &'a str,
         ct: &'a Content,
-        reader: &'a mut R,
+        reader: R,
         device: &'a Device
     ) -> Self {
         Self { prefix, ct, reader, device }

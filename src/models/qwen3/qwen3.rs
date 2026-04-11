@@ -55,7 +55,7 @@ pub struct Qwen3 {
 
 impl Qwen3 {
     pub fn load<M, T>(
-        model: &mut M,
+        mut model: M,
         tokenizer: T,
         device: Device,
     ) -> Result<Self, Error>
@@ -63,7 +63,7 @@ impl Qwen3 {
         M: Read + Seek,
         T: AsRef<[u8]>,
     {
-        let ct = gguf_file::Content::read(model)?;
+        let ct = gguf_file::Content::read(&mut model)?;
         let tokenizer = Tokenizer::from_bytes(tokenizer)?;
 
         let mut gg = Gguf::new("qwen3", &ct, model, &device);
