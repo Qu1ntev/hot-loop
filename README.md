@@ -28,7 +28,8 @@ use std::io::{stdout, Write};
 
 use hot_loop::{
     Model,
-    models::qwen3::Qwen3Loader,
+    models::Qwen3,
+    models::ModelBuilder,
     session::history::{Message, Role},
     Device,
     Error,
@@ -38,7 +39,7 @@ fn main() -> Result<(), Error> {
     let model_file = File::open("models/Qwen3-4B-it-Q4_K_M.gguf").unwrap();
 
     // model read only
-    let model = Qwen3Loader::new(model_file)
+    let model: Qwen3 = ModelBuilder::new(model_file)
         .load(Device::Cpu)?;
 
     let mut session = model.new_session();
@@ -118,7 +119,8 @@ use std::fs::{File, read};
 use std::sync::Arc;
 
 use hot_loop::{
-    models::qwen3::Qwen3Loader,
+    models::Qwen3,
+    models::ModelBuilder,
     session::{Session, Generation},
     session::history::{Message, Role},
     Model, // trait
@@ -134,10 +136,10 @@ fn main() -> Result<(), Error> {
     let model_file = File::open("Qwen3.gguf").unwrap();
     let tokenizer_bytes = read("tokenizer.json").unwrap();
 
-    let model = Qwen3Loader::new(model_file)
+    let model: Qwen3 = ModelBuilder::new(model_file)
         .with_tokenizer(tokenizer_bytes)
         .with_dtype(Dtype::F16)
-        .load(Device::Cpu)?;
+        .load::<Qwen3>(Device::Cpu)?;
     
     func1(&model);
 
@@ -176,7 +178,8 @@ use std::fs::File;
 
 use hot_loop::{
     Model,
-    models::qwen3::Qwen3Loader,
+    models::Qwen3,
+    models::ModelBuilder,
     Device,
     Error,
     settings::{Settings, Seed},
@@ -185,7 +188,7 @@ use hot_loop::{
 fn main() -> Result<(), Error> {
     let model_file = File::open("Qwen3.gguf").unwrap();
 
-    let model = Qwen3Loader::new(model_file)
+    let model: Qwen3 = ModelBuilder::new(model_file)
         .load(Device::Cpu)?;
 
     let settings = Settings::default()
@@ -218,7 +221,8 @@ use std::io::{stdout, Write};
 
 use hot_loop::{
     Model,
-    models::qwen3::Qwen3Loader,
+    models::Qwen3,
+    models::ModelBuilder,
     session::history::{Message, Role},
     Device,
     Error,
@@ -227,7 +231,7 @@ use hot_loop::{
 fn main() -> Result<(), Error> {
     let model_file = File::open("Qwen3.gguf").unwrap();
 
-    let model = Qwen3Loader::new(model_file)
+    let model: Qwen3 = ModelBuilder::new(model_file)
         .load(Device::Cpu)?;
 
     let mut history = vec![ // set system prompt
@@ -258,7 +262,8 @@ use std::io::{stdout, Write};
 
 use hot_loop::{
     Model,
-    models::qwen3::Qwen3Loader,
+    models::Qwen3,
+    models::ModelBuilder,
     session::history::{Message, Role},
     Device,
     Error,
@@ -267,7 +272,7 @@ use hot_loop::{
 fn main() -> Result<(), Error> {
     let model_file = File::open("Qwen3.gguf").unwrap();
 
-    let model = Qwen3Loader::new(model_file)
+    let model: Qwen3 = ModelBuilder::new(model_file)
         .load(Device::Cpu)?;
     
     let mut session = model.new_session();
@@ -306,7 +311,8 @@ use std::thread;
 use std::sync::Arc;
 use hot_loop::{
     Model,
-    models::qwen3::Qwen3Loader,
+    models::Qwen3,
+    models::ModelBuilder,
     session::Session,
     session::history::{Message, Role},
     Device,
@@ -336,7 +342,7 @@ const QUESTIONS: [&str; 4] = [
 fn main() -> Result<(), Error> {
     let model_file = File::open("models/Qwen3-4B-it-Q4_K_M.gguf").unwrap();
 
-    let model = Arc::new(Qwen3Loader::new(model_file).load(Device::Cpu)?);
+    let model = Arc::new(ModelBuilder::new(model_file).load::<Qwen3>(Device::Cpu)?);
 
     let mut handles = Vec::new();
 

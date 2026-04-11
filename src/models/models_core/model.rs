@@ -1,5 +1,6 @@
+use std::io::{Read, Seek};
 use std::ops::Deref;
-use candle_core::{Device, Result as CandleResult, Tensor};
+use candle_core::{DType, Device, Result as CandleResult, Tensor};
 use crate::{session::Session, Error};
 use crate::utils::kv_cache::KvCache;
 use crate::session::history::Message;
@@ -55,4 +56,13 @@ impl<M: Deref<Target: ModelWeights>> ModelWeights for M {
     fn eos_token(&self) -> u32 {
         self.deref().eos_token()
     }
+}
+
+pub trait Loadable: Sized {
+    fn load<R: Read + Seek>(
+        model: R,
+        tokenizer: Option<Vec<u8>>,
+        device: Device,
+        dtype: DType,
+    ) -> Result<Self, Error>;
 }

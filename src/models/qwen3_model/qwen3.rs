@@ -15,36 +15,7 @@ use super::super::models_core::mask::mask;
 use crate::utils::gguf::Gguf;
 use super::transformers::LayerWeights;
 use candle_core::quantized::tokenizer::TokenizerFromGguf;
-
-pub struct Qwen3Loader<M: Read + Seek> {
-    model: M,
-    tokenizer: Option<Vec<u8>>,
-    dtype: DType,
-}
-
-impl<M: Read + Seek> Qwen3Loader<M> {
-    pub fn new(model: M) -> Self {
-        Self {
-            model,
-            tokenizer: None,
-            dtype: DType::F16,
-        }
-    }
-
-    pub fn with_dtype(mut self, dtype: DType) -> Self {
-        self.dtype = dtype;
-        self
-    }
-
-    pub fn with_tokenizer(mut self, tokenizer: Vec<u8>) -> Self {
-        self.tokenizer = Some(tokenizer);
-        self
-    }
-
-    pub fn load(self, device: Device) -> Result<Qwen3, Error> {
-        Qwen3::load(self.model, self.tokenizer, device, self.dtype)
-    }
-}
+use crate::models::models_core::model::Loadable;
 
 pub struct Qwen3 {
     embed_tokens: Embedding,
@@ -58,8 +29,8 @@ pub struct Qwen3 {
     tokenizer: Tokenizer,
 }
 
-impl Qwen3 {
-    pub(super) fn load<M: Read + Seek>(
+impl Loadable for Qwen3 {
+    fn load<M: Read + Seek>(
         mut model: M,
         tokenizer: Option<Vec<u8>>,
         device: Device,
@@ -171,25 +142,3 @@ impl ModelWeights for Qwen3 {
         self.chat_format.eos_token()
     }
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use std::fs::{File, read};
-//     use std::hint::black_box;
-//
-//     #[test]
-//     fn test_qwen3() -> Result<(), Error> {
-//         let file = File::open("qwen3.gguf").unwrap();
-//         let tokenizer = read("tok.json").unwrap();
-//
-//         let model = Qwen3Loader::new(file)
-//             .with_tokenizer(tokenizer)
-//             .with_dtype(DType::F16)
-//             .load(Device::Cpu)?;
-//
-//         black_box(model);
-//
-//         Ok(())
-//     }
-// }

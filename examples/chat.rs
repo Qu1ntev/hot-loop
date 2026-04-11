@@ -3,7 +3,8 @@ use std::io::{stdin, stdout, Write};
 use std::str::FromStr;
 use hot_loop::{
     Model,
-    models::qwen3::Qwen3Loader,
+    models::Qwen3,
+    models::ModelBuilder,
     session::history::{Message, Role},
     Device,
     Error,
@@ -50,7 +51,7 @@ fn main() -> Result<(), Error> {
 
     println!("Running Model...");
     // model read only
-    let model = Qwen3Loader::new(model_file)
+    let model: Qwen3 = ModelBuilder::new(model_file)
         .load(Device::Cpu)?;
 
     let mut session = model.new_session();
