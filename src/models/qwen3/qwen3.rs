@@ -1,6 +1,6 @@
 use candle_core::quantized::QMatMul;
-use candle_transformers::{quantized_nn::RmsNorm};
-use candle_core::quantized::{gguf_file};
+use super::super::models_core::rms_norm::RmsNorm;
+use candle_core::quantized::gguf_file;
 use candle_core::{DType, Device, Result as CandleResult, Tensor};
 use candle_nn::{Embedding, Module};
 use std::io::{Read, Seek};
@@ -39,6 +39,7 @@ impl Qwen3 {
     {
         let ct = gguf_file::Content::read(&mut model)?;
         let tokenizer = Tokenizer::from_bytes(tokenizer)?;
+        let dtype = DType::F16;
 
         let mut gg = Gguf::new("qwen3", &ct, model, &device);
 
@@ -50,15 +51,6 @@ impl Qwen3 {
         let max_position_embeddings = gg.get_with_prefix("context_length")?.to_u32()? as usize;
         let rms_norm_eps = gg.get_with_prefix("attention.layer_norm_rms_epsilon")?.to_f32()? as f64;
         let rope_freq_base = gg.get_with_prefix("rope.freq_base")?.to_f32()? as f64;
-
-        let dtype = match gg.metadata().get("general.dtype") {
-            Some(v) => match v.to_u32() {
-                Ok(0) => DType::F32,
-                Ok(1) => DType::F16,
-                _ => DType::F16,
-            },
-            None => DType::F16,
-        };
 
         let embed_tensor = gg.tensor("token_embd.weight")?;
         let embed_tokens = Embedding::new(embed_tensor.dequantize(&device)?, hidden_size);

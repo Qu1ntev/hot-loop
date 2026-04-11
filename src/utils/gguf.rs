@@ -1,8 +1,8 @@
-use candle_transformers::{quantized_nn::RmsNorm};
+use crate::models::models_core::rms_norm::RmsNorm;
 use candle_core::quantized::{gguf_file::{Content, Value}, QTensor};
 use candle_core::{Device, Result};
 use std::io::{Read, Seek};
-use std::collections::HashMap;
+// use std::collections::HashMap;
 use candle_core::quantized::QMatMul;
 
 pub(crate) struct Gguf<'a, R: Read + Seek> {
@@ -40,9 +40,9 @@ impl<'a, R: Read + Seek> Gguf<'a, R> {
         RmsNorm::from_qtensor(ws, eps)
     }
 
-    pub fn metadata(&self) -> &HashMap<String, Value> {
-        &self.ct.metadata
-    }
+    // pub fn metadata(&self) -> &HashMap<String, Value> {
+    //     &self.ct.metadata
+    // }
 
     pub fn tensor(&mut self, name: &str) -> Result<QTensor> {
         self.ct.tensor(&mut self.reader, name, self.device)

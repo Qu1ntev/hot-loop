@@ -1,5 +1,6 @@
 use candle_core::quantized::QMatMul;
-use candle_transformers::{quantized_nn::RmsNorm, utils::repeat_kv};
+use candle_transformers::utils::repeat_kv;
+use super::super::models_core::rms_norm::RmsNorm;
 use candle_core::{Result, Tensor};
 use candle_nn::{Activation, Module};
 use std::io::{Read, Seek};
