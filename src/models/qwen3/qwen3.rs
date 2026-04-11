@@ -1,4 +1,4 @@
-use candle_transformers::models::with_tracing::QMatMul;
+use candle_core::quantized::QMatMul;
 use candle_transformers::{quantized_nn::RmsNorm};
 use candle_core::quantized::{gguf_file};
 use candle_core::{DType, Device, Result as CandleResult, Tensor};
@@ -90,7 +90,7 @@ impl Qwen3 {
             Err(_) => gg.tensor("token_embd.weight")?,
         };
 
-        let lm_head = QMatMul::from_weights(lm_head_tensor.into())?;
+        let lm_head = QMatMul::from_arc(lm_head_tensor.into())?;
 
         let chat_format = ChatFormat::new(&tokenizer)?;
 
