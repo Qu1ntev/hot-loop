@@ -100,8 +100,11 @@ impl<'session, M: Model> Generation<'session, M> {
 
     fn input_token(&mut self) -> CandleResult<Tensor> {
         match &self.phase {
-            Phase::Prefill(tokens) =>
-                Tensor::new(tokens.as_slice(), self.model.device()),
+            Phase::Prefill(tokens) => {
+                let input = Tensor::new(tokens.as_slice(), self.model.device());
+                self.cached_tokens.extend_from_slice(tokens);
+                input
+            },
             
             Phase::Decode(token) =>
                 Tensor::new(&[*token], self.model.device()),
@@ -120,5 +123,16 @@ impl<'session, M: Model> Generation<'session, M> {
                 &self.response_tokens[start_at..],
             )
         }
+    }
+}
+
+#[cfg(feature = "dev")]
+impl<'session, M: Model> Generation<'session, M> {
+    pub fn cached_tokens(&self) -> &[u32] {
+        &self.cached_tokens
+    }
+
+    pub fn kv_cache_len(&self) -> usize {
+        self.kv_cache.current_pos()
     }
 }

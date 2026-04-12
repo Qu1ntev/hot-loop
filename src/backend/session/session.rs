@@ -40,13 +40,9 @@ impl<M: Model> Session<M> {
         let mask = self.history_mask(&tokens);
 
         self.kv_cache.truncate(mask)?;
-        self.cached_tokens.truncate(mask);
+        self.cached_tokens.truncate(mask); // заранее прокид, баг
 
         let new_tokens = tokens[mask..].to_vec();
-        // let str_tokens = self.model.tokenizer().decode(&new_tokens, false)?;
-        // println!("\n\n===\n{str_tokens}\n===\n\n");
-
-        self.cached_tokens.extend_from_slice(&new_tokens);
         
         let phase = if new_tokens.is_empty() {
             let token = *self.cached_tokens.last().unwrap();
@@ -69,18 +65,6 @@ impl<M: Model> Session<M> {
             logits_processor,
             self.settings,
         ))
-    }
-
-    pub fn view_cache(&self) -> Result<String, Error> {
-        Ok(self.model.tokenizer().decode(&self.cached_tokens, false)?)
-    }
-
-    pub fn cached_tokens_len(&self) -> usize {
-        self.cached_tokens.len()
-    }
-
-    pub fn kv_cache_len(&self) -> usize {
-        self.kv_cache.current_pos()
     }
 
     fn history_mask(&self, tokens: &[u32]) -> usize {
@@ -121,7 +105,23 @@ impl<M: Model> Session<M> {
         self.settings = settings;
     }
 
-    // pub fn clear_cache(&mut self) {
-    //     self.kv_cache.clear();
-    // }
+    pub fn clear_cache(&mut self) {
+        self.kv_cache.clear();
+        self.cached_tokens.clear();
+    }
+}
+
+#[cfg(feature = "dev")]
+impl<M: Model> Session<M> {
+    pub fn cached_tokens_str(&self) -> Result<String, Error> {
+        Ok(self.model.tokenizer().decode(&self.cached_tokens, false)?)
+    }
+
+    pub fn cached_tokens(&self) -> &[u32] {
+        &self.cached_tokens
+    }
+
+    pub fn kv_cache_len(&self) -> usize {
+        self.kv_cache.current_pos()
+    }
 }
