@@ -36,7 +36,7 @@ use hot_loop::{
 };
 
 fn main() -> Result<(), Error> {
-    let model_file = File::open("models/Qwen3-4B-it-Q4_K_M.gguf").unwrap();
+    let model_file = File::open("models/Qwen3-4B-it-Q4_K_M.gguf").unwrap(); // Read + Seek
 
     // model read only
     let model: Qwen3 = ModelBuilder::new(model_file)
