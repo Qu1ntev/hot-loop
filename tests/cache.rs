@@ -19,6 +19,11 @@ fn get_history_tests() -> Vec<Vec<Message>> {
         vec![
             Message::new(Role::System, "Your Assistant"),
             Message::new(Role::User, "Hello!"),
+            Message::new(Role::Assistant, "Hi! How can I help?"),
+        ],
+        vec![
+            Message::new(Role::System, "Your Assistant"),
+            Message::new(Role::User, "Hello!"),
         ],
         vec![
             Message::new(Role::User, "Hello!"),
@@ -95,6 +100,11 @@ fn cache_gen_drop() -> Result<(), Error> {
         let h = vec![Message::new(Role::User, "a Hello Qwen!")];
         let _generate = session.generate(&h)?;
     }
+
+    let cached_tokens_len = session.cached_tokens().len();
+    let kv_cache_len = session.kv_cache_len();
+
+    assert_eq!(cached_tokens_len, kv_cache_len);
 
     for (i, history) in history_tests.iter().enumerate() {
         {
