@@ -10,6 +10,13 @@ use crate::utils::kv_cache::KvCache;
 pub(crate) enum Phase {
     Prefill(Vec<u32>),
     Decode(u32),
+    Missing
+}
+
+impl Phase {
+    fn take(&mut self) -> Self {
+        std::mem::replace(self, Self::Missing)
+    }
 }
 
 #[non_exhaustive]
@@ -53,28 +60,49 @@ impl<'session, M: Model> Generation<'session, M> {
                 return Ok(None);
             }
 
-            if let Phase::Decode(next_token) = self.phase {
-                self.response_tokens.push(next_token);
-                self.cached_tokens.push(next_token);
-            }
+            let next_token = match self.phase.take() {
+                Phase::Prefill(tokens) => self.prefill(&tokens)?,
+                Phase::Decode(token) => self.decode(token)?,
+                Phase::Missing => return Err(Error::MissingValue("missing phase".into())),
+            };
 
-            let input = self.input_token()?;
-            let logits = self.model_infer(input)?;
-            let logits = self.apply_repeat_penalty(logits)?;
-
-            let next_token = self.logits_processor.sample(&logits)?;
+            let chunk = self.has_chunk(next_token)?;
             self.phase = Phase::Decode(next_token);
-
             self.index += 1;
 
             if self.is_model_return(next_token) {
                 return Ok(None);
             }
 
-            if let Some(chunk) = self.has_chunk(next_token)? {
+            if let Some(chunk) = chunk {
                 return Ok(Some(chunk))
             }
         }
+    }
+
+    fn prefill(&mut self, tokens: &[u32]) -> Result<u32, Error> {
+        let input = Tensor::new(tokens, self.model.device())?;
+        let next_token = self.next_token(input)?;
+
+        self.cached_tokens.extend_from_slice(tokens);
+
+        Ok(next_token)
+    }
+
+    fn decode(&mut self, token: u32) -> Result<u32, Error> {
+        let input = Tensor::new(&[token], self.model.device())?;
+        let next_token = self.next_token(input)?;
+
+        self.response_tokens.push(token);
+        self.cached_tokens.push(token);
+
+        Ok(next_token)
+    }
+
+    fn next_token(&mut self, input: Tensor) -> CandleResult<u32> {
+        let logits = self.model_infer(input)?;
+        let logits = self.apply_repeat_penalty(logits)?;
+        self.logits_processor.sample(&logits)
     }
 
     fn is_len_limit(&self) -> bool {
@@ -96,19 +124,6 @@ impl<'session, M: Model> Generation<'session, M> {
         let logits = self.model.forward(&input, current_pos, &mut self.kv_cache)?;
 
         logits.squeeze(0)
-    }
-
-    fn input_token(&mut self) -> CandleResult<Tensor> {
-        match &self.phase {
-            Phase::Prefill(tokens) => {
-                let input = Tensor::new(tokens.as_slice(), self.model.device());
-                self.cached_tokens.extend_from_slice(tokens);
-                input
-            },
-            
-            Phase::Decode(token) =>
-                Tensor::new(&[*token], self.model.device()),
-        }
     }
 
     fn apply_repeat_penalty(&self, logits: Tensor) -> CandleResult<Tensor> {

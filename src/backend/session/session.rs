@@ -40,12 +40,14 @@ impl<M: Model> Session<M> {
         let mask = self.history_mask(&tokens);
 
         self.kv_cache.truncate(mask)?;
-        self.cached_tokens.truncate(mask); // заранее прокид, баг
+        self.cached_tokens.truncate(mask);
 
         let new_tokens = tokens[mask..].to_vec();
         
         let phase = if new_tokens.is_empty() {
-            let token = *self.cached_tokens.last().unwrap();
+            let token = *self.cached_tokens.last()
+                .ok_or_else(|| Error::MissingValue("cached_tokens last is empty".into()))?;
+
             Phase::Decode(token)
         } else {
             Phase::Prefill(new_tokens)
