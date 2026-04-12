@@ -106,8 +106,9 @@ hot-loop = { version = "...", features = ["cuda"] }
 ```
 
 ## Rust Code
-```rust
-Qwen3::load(.., .., Device::new_cuda(0)?)?
+```diff
+- let device = Device::Cpu;
++ let device = Device::new_cuda(0)?;
 ```
 
 ---
