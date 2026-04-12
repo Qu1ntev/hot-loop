@@ -37,11 +37,11 @@ impl TokenOutputStream {
         }
     }
 
-    pub(crate) fn clear(&mut self) {
-        self.tokens.clear();
-        self.prev_index = 0;
-        self.current_index = 0;
-    }
+    // pub(crate) fn clear(&mut self) {
+    //     self.tokens.clear();
+    //     self.prev_index = 0;
+    //     self.current_index = 0;
+    // }
 
     fn decode(&self, tokenizer: &Tokenizer, tokens: &[u32]) -> Result<String> {
         match tokenizer.decode(tokens, true) {
