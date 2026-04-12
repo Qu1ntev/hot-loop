@@ -7,14 +7,19 @@ use crate::Model;
 use crate::utils::token_output_stream::TokenOutputStream;
 use crate::utils::kv_cache::KvCache;
 
+pub(crate) enum Phase {
+    Prefill(Vec<u32>),
+    Decode(u32),
+}
+
 #[non_exhaustive]
 pub struct Generation<'session, M: Model> {
     model: &'session M,
     kv_cache: &'session mut KvCache,
     index: usize,
-    next_token: u32,
-    tokens_prefill: Option<Vec<u32>>,
-    all_tokens: Vec<u32>,
+    phase: Phase,
+    cached_tokens: &'session mut Vec<u32>,
+    response_tokens: Vec<u32>,
     settings: Settings,
     logits_processor: LogitsProcessor,
     tos: TokenOutputStream,
@@ -23,20 +28,21 @@ pub struct Generation<'session, M: Model> {
 impl<'session, M: Model> Generation<'session, M> {
     pub(crate) fn new(
         model: &'session M,
+        phase: Phase,
         kv_cache: &'session mut KvCache,
-        tokens_prefill: Vec<u32>,
+        cached_tokens: &'session mut Vec<u32>,
         logits_processor: LogitsProcessor,
         settings: Settings,
     ) -> Self {
         Self {
             model,
             kv_cache,
-            index: 0,
-            next_token: 0,
-            all_tokens: Vec::new(),
-            tokens_prefill: Some(tokens_prefill),
+            phase,
+            cached_tokens,
             logits_processor,
             settings,
+            index: 0,
+            response_tokens: Vec::new(),
             tos: TokenOutputStream::new(),
         }
     }
@@ -47,20 +53,25 @@ impl<'session, M: Model> Generation<'session, M> {
                 return Ok(None);
             }
 
-            let logits = self.model_infer()?;
+            if let Phase::Decode(next_token) = self.phase {
+                self.response_tokens.push(next_token);
+                self.cached_tokens.push(next_token);
+            }
 
+            let input = self.input_token()?;
+            let logits = self.model_infer(input)?;
             let logits = self.apply_repeat_penalty(logits)?;
 
-            self.next_token = self.logits_processor.sample(&logits)?;
-            self.all_tokens.push(self.next_token);
+            let next_token = self.logits_processor.sample(&logits)?;
+            self.phase = Phase::Decode(next_token);
 
             self.index += 1;
 
-            if self.is_model_return() {
+            if self.is_model_return(next_token) {
                 return Ok(None);
             }
 
-            if let Some(chunk) = self.has_chunk()? {
+            if let Some(chunk) = self.has_chunk(next_token)? {
                 return Ok(Some(chunk))
             }
         }
@@ -70,22 +81,15 @@ impl<'session, M: Model> Generation<'session, M> {
         self.settings.sample_len <= self.index
     }
 
-    fn is_model_return(&self) -> bool {
-        self.next_token == self.model.eos_token()
+    fn is_model_return(&self, next_token: u32) -> bool {
+        next_token == self.model.eos_token()
     }
 
-    fn has_chunk(&mut self) -> CandleResult<Option<String>> {
-        self.tos.next_token(self.model.tokenizer(), self.next_token)
+    fn has_chunk(&mut self, next_token: u32) -> CandleResult<Option<String>> {
+        self.tos.next_token(self.model.tokenizer(), next_token)
     }
 
-    fn model_infer(&mut self) -> CandleResult<Tensor> {
-        let input = if self.index == 0 &&
-            let Some(tokens_prefill) = self.tokens_prefill.take() {
-            Tensor::new(tokens_prefill.as_slice(), self.model.device())?
-
-        } else {
-            Tensor::new(&[self.next_token], self.model.device())?
-        };
+    fn model_infer(&mut self, input: Tensor) -> CandleResult<Tensor> {
         let input = input.unsqueeze(0)?;
 
         let current_pos = self.kv_cache.current_pos();
@@ -94,22 +98,27 @@ impl<'session, M: Model> Generation<'session, M> {
         logits.squeeze(0)
     }
 
+    fn input_token(&mut self) -> CandleResult<Tensor> {
+        match &self.phase {
+            Phase::Prefill(tokens) =>
+                Tensor::new(tokens.as_slice(), self.model.device()),
+            
+            Phase::Decode(token) =>
+                Tensor::new(&[*token], self.model.device()),
+        }
+    }
+
     fn apply_repeat_penalty(&self, logits: Tensor) -> CandleResult<Tensor> {
         if self.settings.repeat_penalty == 1. {
             Ok(logits)
         } else {
-            let start_at = self.all_tokens.len().saturating_sub(self.settings.repeat_last_n);
+            let start_at = self.response_tokens.len().saturating_sub(self.settings.repeat_last_n);
+            
             candle_transformers::utils::apply_repeat_penalty(
                 &logits,
                 self.settings.repeat_penalty,
-                &self.all_tokens[start_at..],
+                &self.response_tokens[start_at..],
             )
         }
-    }
-}
-
-impl<'session, M: Model> Drop for Generation<'session, M> {
-    fn drop(&mut self) {
-        self.kv_cache.clear();
     }
 }

@@ -5,17 +5,20 @@ use crate::Error;
 use crate::Model;
 use crate::session::history::Message;
 use crate::utils::kv_cache::KvCache;
+use super::generation::Phase;
 
 #[non_exhaustive]
 pub struct Session<M: Model> {
     model: M, // read only
     settings: Settings,
     kv_cache: KvCache,
+    cached_tokens: Vec<u32>
 }
 
 impl<M: Model> Session<M> {
     pub fn new(model: M) -> Self {
         let settings = Settings::default();
+        let cached_tokens = Vec::new();
 
         let layers_len = model.layers_len();
         let kv_cache = KvCache::new(layers_len, 2);
@@ -24,11 +27,33 @@ impl<M: Model> Session<M> {
             model,
             settings,
             kv_cache,
+            cached_tokens,
         }
     }
 
     pub fn generate(&mut self, history: &[Message]) -> Result<Generation<'_, M>, Error> {
+        if history.is_empty() {
+            return Err(Error::MissingValue("History is empty".into()));
+        }
+
         let tokens = self.model.fmt_history(history)?;
+        let mask = self.history_mask(&tokens);
+
+        self.kv_cache.truncate(mask)?;
+        self.cached_tokens.truncate(mask);
+
+        let new_tokens = tokens[mask..].to_vec();
+        // let str_tokens = self.model.tokenizer().decode(&new_tokens, false)?;
+        // println!("\n\n===\n{str_tokens}\n===\n\n");
+
+        self.cached_tokens.extend_from_slice(&new_tokens);
+        
+        let phase = if new_tokens.is_empty() {
+            let token = *self.cached_tokens.last().unwrap();
+            Phase::Decode(token)
+        } else {
+            Phase::Prefill(new_tokens)
+        };
 
         let sampling = self.sampling();
         let seed = self.seed();
@@ -38,11 +63,31 @@ impl<M: Model> Session<M> {
 
         Ok(Generation::new(
             &self.model,
+            phase,
             &mut self.kv_cache,
-            tokens,
+            &mut self.cached_tokens,
             logits_processor,
             self.settings,
         ))
+    }
+
+    pub fn view_cache(&self) -> Result<String, Error> {
+        Ok(self.model.tokenizer().decode(&self.cached_tokens, false)?)
+    }
+
+    pub fn cached_tokens_len(&self) -> usize {
+        self.cached_tokens.len()
+    }
+
+    pub fn kv_cache_len(&self) -> usize {
+        self.kv_cache.current_pos()
+    }
+
+    fn history_mask(&self, tokens: &[u32]) -> usize {
+        self.cached_tokens.iter()
+            .zip(tokens.iter())
+            .take_while(|(a, b)| a == b)
+            .count()
     }
     
     fn sampling(&self) -> Sampling {
