@@ -5,14 +5,12 @@ use crate::Error;
 use crate::Model;
 use crate::session::history::Message;
 use crate::utils::kv_cache::KvCache;
-use crate::utils::token_output_stream::TokenOutputStream;
 
 #[non_exhaustive]
 pub struct Session<M: Model> {
     model: M, // read only
     settings: Settings,
     kv_cache: KvCache,
-    tos: TokenOutputStream,
 }
 
 impl<M: Model> Session<M> {
@@ -21,14 +19,11 @@ impl<M: Model> Session<M> {
 
         let layers_len = model.layers_len();
         let kv_cache = KvCache::new(layers_len, 2);
-
-        let tos = TokenOutputStream::new();
         
         Self {
             model,
             settings,
             kv_cache,
-            tos,
         }
     }
 
@@ -43,11 +38,10 @@ impl<M: Model> Session<M> {
 
         Ok(Generation::new(
             &self.model,
+            &mut self.kv_cache,
             tokens,
             logits_processor,
             self.settings,
-            &mut self.tos,
-            &mut self.kv_cache,
         ))
     }
     

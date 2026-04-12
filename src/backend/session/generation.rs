@@ -10,35 +10,34 @@ use crate::utils::kv_cache::KvCache;
 #[non_exhaustive]
 pub struct Generation<'session, M: Model> {
     model: &'session M,
+    kv_cache: &'session mut KvCache,
     index: usize,
     next_token: u32,
     tokens_prefill: Option<Vec<u32>>,
     all_tokens: Vec<u32>,
     settings: Settings,
     logits_processor: LogitsProcessor,
-    tos: &'session mut TokenOutputStream,
-    kv_cache: &'session mut KvCache,
+    tos: TokenOutputStream,
 }
 
 impl<'session, M: Model> Generation<'session, M> {
     pub(crate) fn new(
         model: &'session M,
+        kv_cache: &'session mut KvCache,
         tokens_prefill: Vec<u32>,
         logits_processor: LogitsProcessor,
         settings: Settings,
-        tos: &'session mut TokenOutputStream,
-        kv_cache: &'session mut KvCache,
     ) -> Self {
         Self {
             model,
+            kv_cache,
             index: 0,
             next_token: 0,
             all_tokens: Vec::new(),
             tokens_prefill: Some(tokens_prefill),
             logits_processor,
             settings,
-            tos,
-            kv_cache,
+            tos: TokenOutputStream::new(),
         }
     }
 
@@ -111,7 +110,6 @@ impl<'session, M: Model> Generation<'session, M> {
 
 impl<'session, M: Model> Drop for Generation<'session, M> {
     fn drop(&mut self) {
-        self.tos.clear();
         self.kv_cache.clear();
     }
 }
