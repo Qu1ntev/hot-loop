@@ -119,6 +119,10 @@ impl<M: Model> Session<M> {
         self.kv_cache.clear();
         self.cached_tokens.clear();
     }
+    
+    pub fn context(&self) -> usize {
+        self.kv_cache.current_pos()
+    }
 }
 
 #[cfg(feature = "dev")]

@@ -308,6 +308,8 @@ fn main() -> Result<(), Error> {
         
         history.push(Message::new(Role::Assistant, answer)); // update history
     }
+    
+    println!("context len: {}", session.context());
 
     history.clear(); // clear history
     session.clear_cache(); // clear session kv cache
