@@ -67,7 +67,7 @@ fn cache_prefill() -> Result<(), Error> {
         }
 
         let cached_tokens_len = session.cached_tokens().len();
-        let kv_cache_len = session.kv_cache_len();
+        let kv_cache_len = session.context();
 
         assert_eq!(cached_tokens_len, kv_cache_len);
 
@@ -77,7 +77,7 @@ fn cache_prefill() -> Result<(), Error> {
     session.clear_cache();
 
     let cached_tokens_len = session.cached_tokens().len();
-    let kv_cache_len = session.kv_cache_len();
+    let kv_cache_len = session.context();
 
     assert_eq!(cached_tokens_len, 0);
     assert_eq!(kv_cache_len, 0);
@@ -102,7 +102,7 @@ fn cache_gen_drop() -> Result<(), Error> {
     }
 
     let cached_tokens_len = session.cached_tokens().len();
-    let kv_cache_len = session.kv_cache_len();
+    let kv_cache_len = session.context();
 
     assert_eq!(cached_tokens_len, kv_cache_len);
 
@@ -124,7 +124,7 @@ fn cache_gen_drop() -> Result<(), Error> {
         }
 
         let cached_tokens_len = session.cached_tokens().len();
-        let kv_cache_len = session.kv_cache_len();
+        let kv_cache_len = session.context();
 
         assert_eq!(cached_tokens_len, kv_cache_len);
 

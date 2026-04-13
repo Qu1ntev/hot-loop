@@ -119,7 +119,7 @@ impl<M: Model> Session<M> {
         self.kv_cache.clear();
         self.cached_tokens.clear();
     }
-    
+
     pub fn context(&self) -> usize {
         self.kv_cache.current_pos()
     }
@@ -133,9 +133,5 @@ impl<M: Model> Session<M> {
 
     pub fn cached_tokens(&self) -> &[u32] {
         &self.cached_tokens
-    }
-
-    pub fn kv_cache_len(&self) -> usize {
-        self.kv_cache.current_pos()
     }
 }
