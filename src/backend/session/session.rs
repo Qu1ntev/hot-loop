@@ -1,3 +1,4 @@
+use candle_core::Tensor;
 use candle_transformers::generation::{LogitsProcessor, Sampling};
 use super::Generation;
 use crate::settings::{Settings, Seed};
@@ -122,6 +123,36 @@ impl<M: Model> Session<M> {
 
     pub fn context(&self) -> usize {
         self.kv_cache.current_pos()
+    }
+
+    pub fn warmup(&mut self, history: &[Message]) -> Result<(), Error> {
+        if history.is_empty() {
+            return Err(Error::MissingValue("History is empty".into()));
+        }
+
+        let tokens = self.model.fmt_history(history)?; // no start template fix
+        let mask = self.history_mask(&tokens);
+
+        let new_tokens = tokens[mask..].to_vec();
+
+        match new_tokens.is_empty() {
+            true =>
+                return Ok(()),
+
+            false => {
+                self.kv_cache.truncate(mask)?;
+                self.cached_tokens.truncate(mask);
+
+                let input = Tensor::new(new_tokens.as_slice(), self.model.device())?.unsqueeze(0)?;
+                let current_pos = self.kv_cache.current_pos();
+
+                let _ = self.model.forward(&input, current_pos, &mut self.kv_cache)?;
+
+                self.cached_tokens.extend_from_slice(&new_tokens);
+            }
+        }
+
+        Ok(())
     }
 }
 
