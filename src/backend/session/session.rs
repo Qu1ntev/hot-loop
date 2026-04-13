@@ -131,7 +131,7 @@ impl<M: Model> Session<M> {
 
     pub fn warmup(&mut self, history: &[Message]) -> Result<(), Error> {
         if history.is_empty() {
-            return Err(Error::MissingValue("History is empty".into()));
+            return Ok(());
         }
 
         let tokens = self.model
