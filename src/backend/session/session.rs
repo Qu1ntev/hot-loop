@@ -43,7 +43,7 @@ impl<M: Model> Session<M> {
 
         let phase = match new_tokens.is_empty() {
             true => {
-                let token = *self.cached_tokens.last()
+                let token = *tokens.last()
                     .ok_or_else(|| Error::MissingValue("cached_tokens last is empty".into()))?;
 
                 let satur_mask = mask.saturating_sub(1);
