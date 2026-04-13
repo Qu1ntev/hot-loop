@@ -130,7 +130,8 @@ use hot_loop::{
     session::history::{Message, Role},
     Model, // trait
     Device,
-    Error
+    Error,
+    Dtype
 };
 
 fn func1<M: Model>(_model: M) {}
@@ -300,6 +301,7 @@ fn main() -> Result<(), Error> {
     }
 
     history.clear(); // clear history
+    session.clear_cache(); // clear session kv cache
 
     Ok(())
 }
