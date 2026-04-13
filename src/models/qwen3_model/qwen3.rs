@@ -17,6 +17,7 @@ use super::transformers::LayerWeights;
 use candle_core::quantized::tokenizer::TokenizerFromGguf;
 use crate::models::models_core::model::Loadable;
 
+#[non_exhaustive]
 pub struct Qwen3 {
     embed_tokens: Embedding,
     rotary_embedding: RotaryEmbedding,

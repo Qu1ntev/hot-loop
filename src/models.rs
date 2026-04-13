@@ -9,6 +9,7 @@ use crate::Model;
 use crate::Error;
 use crate::models::models_core::model::Loadable;
 
+#[non_exhaustive]
 pub struct ModelBuilder<R: Read + Seek> {
     model: R,
     tokenizer: Option<Vec<u8>>,
