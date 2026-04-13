@@ -254,11 +254,16 @@ fn main() -> Result<(), Error> {
     ];
 
     let mut session = model.new_session();
+    
+    session.warmup(&history)?; // preload system-prompt
+    
     history.push(Message::new(Role::User, "Hello!"));
+
+    session.warmup(&history)?; // preload user-message
     
     let mut generate = session.generate(&history)?;
 
-    while let Some(chunk) = generate.next_chunk()? {
+    while let Some(chunk) = generate.next_chunk()? { // instantly response
         print!("{chunk}");
         stdout().flush().unwrap();
     }
