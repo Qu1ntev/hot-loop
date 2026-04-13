@@ -64,6 +64,10 @@ fn main() -> Result<(), Error> {
 
 ---
 
+# ⚡ [Benchmarks](benchmarks/README.md)
+
+---
+
 # Boost Your Code 🚀🦀
 
 ## Use ```target-cpu=native``` to boost generation speed!
