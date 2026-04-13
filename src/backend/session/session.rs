@@ -39,18 +39,26 @@ impl<M: Model> Session<M> {
         let tokens = self.model.fmt_history(history)?;
         let mask = self.history_mask(&tokens);
 
-        self.kv_cache.truncate(mask)?;
-        self.cached_tokens.truncate(mask);
-
         let new_tokens = tokens[mask..].to_vec();
-        
-        let phase = if new_tokens.is_empty() {
-            let token = *self.cached_tokens.last()
-                .ok_or_else(|| Error::MissingValue("cached_tokens last is empty".into()))?;
 
-            Phase::Decode(token)
-        } else {
-            Phase::Prefill(new_tokens)
+        let phase = match new_tokens.is_empty() {
+            true => {
+                let token = *self.cached_tokens.last()
+                    .ok_or_else(|| Error::MissingValue("cached_tokens last is empty".into()))?;
+
+                let satur_mask = mask.saturating_sub(1);
+
+                self.kv_cache.truncate(satur_mask)?;
+                self.cached_tokens.truncate(satur_mask);
+
+                Phase::Decode(token)
+            },
+            false => {
+                self.kv_cache.truncate(mask)?;
+                self.cached_tokens.truncate(mask);
+
+                Phase::Prefill(new_tokens)
+            }
         };
 
         let sampling = self.sampling();
