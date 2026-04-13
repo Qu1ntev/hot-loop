@@ -16,6 +16,15 @@
 
 ---
 
+## What Is Hot-Loop?
+It is a high-level, pure-Rust crate with zero C++ or Python dependencies, designed for running LLMs locally with ready-to-use, convenient abstractions.
+
+### Crate Features:
+- **Multi-session support:** Manage multiple independent chat sessions simultaneously.
+- **Session history caching:** Efficiently reuse conversation context to speed up generation and save resources.
+
+---
+
 [![Crates.io](https://img.shields.io/crates/v/hot-loop.svg)](https://crates.io/crates/hot-loop)
 
 # Quick Start
