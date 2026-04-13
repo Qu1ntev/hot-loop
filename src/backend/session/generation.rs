@@ -6,6 +6,7 @@ use crate::Error;
 use crate::Model;
 use crate::utils::token_output_stream::TokenOutputStream;
 use crate::utils::kv_cache::KvCache;
+use crate::models::models_core::model::ChatTemplate;
 
 pub(crate) enum Phase {
     Prefill(Vec<u32>),
@@ -110,7 +111,7 @@ impl<'session, M: Model> Generation<'session, M> {
     }
 
     fn is_model_return(&self, next_token: u32) -> bool {
-        next_token == self.model.eos_token()
+        next_token == self.model.chat_format().eos_token()
     }
 
     fn has_chunk(&mut self, next_token: u32) -> CandleResult<Option<String>> {

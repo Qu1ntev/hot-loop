@@ -7,6 +7,7 @@ use crate::Model;
 use crate::session::history::Message;
 use crate::utils::kv_cache::KvCache;
 use super::generation::Phase;
+use crate::models::models_core::model::ChatTemplate;
 
 #[non_exhaustive]
 pub struct Session<M: Model> {
@@ -37,7 +38,10 @@ impl<M: Model> Session<M> {
             return Err(Error::MissingValue("History is empty".into()));
         }
 
-        let tokens = self.model.fmt_history(history)?;
+        let tokens = self.model
+            .chat_format()
+            .fmt_history(self.model.tokenizer(), history, true)?;
+        
         let mask = self.history_mask(&tokens);
 
         let new_tokens = tokens[mask..].to_vec();
@@ -130,7 +134,10 @@ impl<M: Model> Session<M> {
             return Err(Error::MissingValue("History is empty".into()));
         }
 
-        let tokens = self.model.fmt_history(history)?; // no start template fix
+        let tokens = self.model
+            .chat_format()
+            .fmt_history(self.model.tokenizer(), history, false)?;
+        
         let mask = self.history_mask(&tokens);
 
         let new_tokens = tokens[mask..].to_vec();

@@ -16,9 +16,7 @@ pub trait ModelWeights {
 
     fn device(&self) -> &Device;
 
-    fn fmt_history(&self, history: &[Message]) -> Result<Vec<u32>, Error>;
-    
-    fn eos_token(&self) -> u32;
+    fn chat_format(&self) -> &impl ChatTemplate;
 }
 
 pub trait Model: ModelWeights + Send + Sync {
@@ -49,12 +47,8 @@ impl<M: Deref<Target: ModelWeights>> ModelWeights for M {
         self.deref().device()
     }
 
-    fn fmt_history(&self, history: &[Message]) -> Result<Vec<u32>, Error> {
-        self.deref().fmt_history(history)
-    }
-
-    fn eos_token(&self) -> u32 {
-        self.deref().eos_token()
+    fn chat_format(&self) -> &impl ChatTemplate {
+        self.deref().chat_format()
     }
 }
 
@@ -65,4 +59,15 @@ pub trait Loadable: Sized {
         device: Device,
         dtype: DType,
     ) -> Result<Self, Error>;
+}
+
+pub trait ChatTemplate {
+    fn fmt_history(
+        &self,
+        tokenizer: &Tokenizer,
+        history: &[Message],
+        add_start: bool,
+    ) -> Result<Vec<u32>, Error>;
+
+    fn eos_token(&self) -> u32;
 }

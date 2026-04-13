@@ -1,6 +1,7 @@
 use tokenizers::Tokenizer;
 use crate::Error;
 use crate::session::history::{Message, Role};
+use super::super::models_core::model::ChatTemplate;
 
 const IM_START: &str =  "<|im_start|>";
 const IM_END: &str =    "<|im_end|>";
@@ -51,18 +52,21 @@ impl ChatFormat {
             new_line
         })
     }
-    
+}
+
+impl ChatTemplate for ChatFormat {
     /// ## output ids:
     /// ```rust
     /// "<|im_start|>{role}\n{prompt}<|im_end|>\n"
     /// ```
-    pub fn fmt_history(
+    fn fmt_history(
         &self,
         tokenizer: &Tokenizer,
         history: &[Message],
+        add_start: bool,
     ) -> Result<Vec<u32>, Error> {
         let mut tokens = Vec::new();
-        
+
         for message in history {
             let role = message.role;
             let text = message.text.as_str();
@@ -85,17 +89,19 @@ impl ChatFormat {
             tk.extend_from_slice(&left);
             tk.extend_from_slice(text_tk.get_ids());
             tk.extend_from_slice(&right);
-            
+
             tokens.extend_from_slice(&tk);
         }
-        
-        let start_template = [self.im_start, self.assistant, self.new_line];
-        tokens.extend_from_slice(&start_template);
-        
+
+        if add_start {
+            let start_template = [self.im_start, self.assistant, self.new_line];
+            tokens.extend_from_slice(&start_template);
+        }
+
         Ok(tokens)
     }
-    
-    pub fn eos_token(&self) -> u32 {
+
+    fn eos_token(&self) -> u32 {
         self.im_end
     }
 }

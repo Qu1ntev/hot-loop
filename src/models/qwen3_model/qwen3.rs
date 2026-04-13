@@ -8,7 +8,6 @@ use crate::Error;
 use crate::utils::kv_cache::KvCache;
 use tokenizers::Tokenizer;
 use super::ChatFormat;
-use crate::session::history::Message;
 use super::super::models_core::model::ModelWeights;
 use super::super::models_core::rotary_embedding::RotaryEmbedding;
 use super::super::models_core::mask::mask;
@@ -16,6 +15,7 @@ use crate::utils::gguf::Gguf;
 use super::transformers::LayerWeights;
 use candle_core::quantized::tokenizer::TokenizerFromGguf;
 use crate::models::models_core::model::Loadable;
+use super::super::models_core::model::ChatTemplate;
 
 #[non_exhaustive]
 pub struct Qwen3 {
@@ -135,11 +135,7 @@ impl ModelWeights for Qwen3 {
         &self.device
     }
 
-    fn fmt_history(&self, history: &[Message]) -> Result<Vec<u32>, Error> {
-        self.chat_format.fmt_history(&self.tokenizer, history)
-    }
-
-    fn eos_token(&self) -> u32 {
-        self.chat_format.eos_token()
+    fn chat_format(&self) -> &impl ChatTemplate {
+        &self.chat_format
     }
 }
