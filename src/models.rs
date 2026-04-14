@@ -7,7 +7,7 @@ use std::io::{Read, Seek};
 use candle_core::{DType, Device};
 use crate::Model;
 use crate::Error;
-use crate::models::models_core::model::Loadable;
+use crate::models::models_core::model::FromGguf;
 
 #[non_exhaustive]
 pub struct ModelBuilder<R: Read + Seek> {
@@ -35,7 +35,7 @@ impl<R: Read + Seek> ModelBuilder<R> {
         self
     }
 
-    pub fn load<M: Model + Loadable>(self, device: Device) -> Result<M, Error> {
-        M::load(self.model, self.tokenizer, device, self.dtype)
+    pub fn load<M: Model + FromGguf>(self, device: Device) -> Result<M, Error> {
+        M::from_gguf(self.model, self.tokenizer, device, self.dtype)
     }
 }

@@ -52,8 +52,8 @@ impl<M: Deref<Target: ModelWeights>> ModelWeights for M {
     }
 }
 
-pub trait Loadable: Sized {
-    fn load<R: Read + Seek>(
+pub trait FromGguf: Sized {
+    fn from_gguf<R: Read + Seek>(
         model: R,
         tokenizer: Option<Vec<u8>>,
         device: Device,

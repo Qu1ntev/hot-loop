@@ -14,7 +14,7 @@ use super::super::models_core::mask::mask;
 use crate::utils::gguf::Gguf;
 use super::transformers::LayerWeights;
 use candle_core::quantized::tokenizer::TokenizerFromGguf;
-use crate::models::models_core::model::Loadable;
+use crate::models::models_core::model::FromGguf;
 use super::super::models_core::model::ChatTemplate;
 
 #[non_exhaustive]
@@ -30,8 +30,8 @@ pub struct Qwen3 {
     tokenizer: Tokenizer,
 }
 
-impl Loadable for Qwen3 {
-    fn load<M: Read + Seek>(
+impl FromGguf for Qwen3 {
+    fn from_gguf<M: Read + Seek>(
         mut model: M,
         tokenizer: Option<Vec<u8>>,
         device: Device,
