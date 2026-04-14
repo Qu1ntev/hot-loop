@@ -3,6 +3,9 @@ pub(crate) mod models_core;
 pub(crate) mod qwen3_model;
 pub use qwen3_model::qwen3::Qwen3;
 
+pub(crate) mod phi3_model;
+// pub use phi3_model:;
+
 use std::io::{Read, Seek};
 use candle_core::{DType, Device};
 use crate::Model;

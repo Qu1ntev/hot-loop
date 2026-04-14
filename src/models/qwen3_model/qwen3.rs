@@ -31,8 +31,8 @@ pub struct Qwen3 {
 }
 
 impl FromGguf for Qwen3 {
-    fn from_gguf<M: Read + Seek>(
-        mut model: M,
+    fn from_gguf<R: Read + Seek>(
+        mut model: R,
         tokenizer: Option<Vec<u8>>,
         device: Device,
         dtype: DType,

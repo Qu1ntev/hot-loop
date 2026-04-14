@@ -13,9 +13,12 @@ struct AttentionWeights {
     q_proj: QMatMul,
     k_proj: QMatMul,
     v_proj: QMatMul,
-    o_proj: QMatMul,
-    q_norm: RmsNorm,
-    k_norm: RmsNorm,
+
+    attn_output: QMatMul,
+
+    attn_norm: RmsNorm,
+    ffn_norm: RmsNorm,
+    
     num_heads: usize,
     num_kv_heads: usize,
     num_kv_groups: usize,
@@ -36,18 +39,18 @@ impl AttentionWeights {
         let q_proj = gg.qmatmul(&format!("{prefix}.attn_q.weight"))?;
         let k_proj = gg.qmatmul(&format!("{prefix}.attn_k.weight"))?;
         let v_proj = gg.qmatmul(&format!("{prefix}.attn_v.weight"))?;
-        let o_proj = gg.qmatmul(&format!("{prefix}.attn_output.weight"))?;
+        let attn_output = gg.qmatmul(&format!("{prefix}.attn_output.weight"))?;
 
-        let q_norm = gg.rms_norm(&format!("{prefix}.attn_q_norm.weight"), rms_norm_eps)?;
-        let k_norm = gg.rms_norm(&format!("{prefix}.attn_k_norm.weight"), rms_norm_eps)?;
+        let attn_norm = gg.rms_norm(&format!("{prefix}.attn_q_norm.weight"), rms_norm_eps)?;
+        let ffn_norm = gg.rms_norm(&format!("{prefix}.attn_k_norm.weight"), rms_norm_eps)?;
 
         Ok(Self {
             q_proj,
             k_proj,
             v_proj,
-            o_proj,
-            q_norm,
-            k_norm,
+            attn_output,
+            attn_norm,
+            ffn_norm,
             num_heads,
             num_kv_heads,
             num_kv_groups,
@@ -82,8 +85,8 @@ impl AttentionWeights {
         let q_flat = q.flatten(0, 2)?;
         let k_flat = k.flatten(0, 2)?;
 
-        let q_flat = self.q_norm.forward(&q_flat)?;
-        let k_flat = self.k_norm.forward(&k_flat)?;
+        let q_flat = self.attn_norm.forward(&q_flat)?;
+        let k_flat = self.ffn_norm.forward(&k_flat)?;
         let q = q_flat.reshape((b, self.num_heads, l, self.head_dim))?;
         let k = k_flat.reshape((b, self.num_kv_heads, l, self.head_dim))?;
 
@@ -107,11 +110,11 @@ impl AttentionWeights {
             scores = scores.broadcast_add(&mask)?;
         }
         let probs = candle_nn::ops::softmax_last_dim(&scores)?;
-        let ctx = probs.matmul(&v)?; // (B, H, L, D)
+        let ctx = probs.matmul(&v)?;
         let reshaped_ctx = ctx
             .transpose(1, 2)?
-            .reshape((b, l, self.num_heads * self.head_dim))?;
-        self.o_proj.forward(&reshaped_ctx)
+            .reshape((b, l, ()))?;
+        self.attn_output.forward(&reshaped_ctx)
     }
 }
 
