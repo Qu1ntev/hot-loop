@@ -45,7 +45,7 @@ impl FromGguf for Qwen3 {
             Some(tokenizer) => Tokenizer::from_bytes(tokenizer)?,
             None => TokenizerFromGguf::from_gguf(&ct)?
         };
-
+        let chat_format = ChatFormat::new(&tokenizer)?;
         let mut gg = Gguf::new("qwen3", &ct, model, &device);
 
         let num_attention_heads = gg.get_with_prefix("attention.head_count")?.to_u32()? as usize;
@@ -88,8 +88,6 @@ impl FromGguf for Qwen3 {
         };
 
         let output = QMatMul::from_arc(lm_head_tensor.into())?;
-
-        let chat_format = ChatFormat::new(&tokenizer)?;
 
         Ok(Self {
             embed_tokens,
