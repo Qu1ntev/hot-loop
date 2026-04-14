@@ -18,7 +18,7 @@ struct AttentionWeights {
 
     attn_norm: RmsNorm,
     ffn_norm: RmsNorm,
-    
+
     num_heads: usize,
     num_kv_heads: usize,
     num_kv_groups: usize,
@@ -109,11 +109,14 @@ impl AttentionWeights {
             };
             scores = scores.broadcast_add(&mask)?;
         }
+
         let probs = candle_nn::ops::softmax_last_dim(&scores)?;
         let ctx = probs.matmul(&v)?;
+
         let reshaped_ctx = ctx
             .transpose(1, 2)?
             .reshape((b_sz, seq_len, ()))?;
+
         self.attn_output.forward(&reshaped_ctx)
     }
 }
