@@ -22,8 +22,10 @@ pub struct Qwen3 {
     embed_tokens: Embedding,
     rotary_embedding: RotaryEmbedding,
     layers: Vec<LayerWeights>,
+    
     norm: RmsNorm,
-    lm_head: QMatMul,
+    output: QMatMul,
+    
     device: Device,
     dtype: DType,
     chat_format: ChatFormat,
@@ -85,7 +87,7 @@ impl FromGguf for Qwen3 {
             Err(_) => gg.tensor("token_embd.weight")?,
         };
 
-        let lm_head = QMatMul::from_arc(lm_head_tensor.into())?;
+        let output = QMatMul::from_arc(lm_head_tensor.into())?;
 
         let chat_format = ChatFormat::new(&tokenizer)?;
 
@@ -94,7 +96,7 @@ impl FromGguf for Qwen3 {
             rotary_embedding,
             layers,
             norm,
-            lm_head,
+            output,
             device,
             dtype,
             chat_format,
@@ -120,7 +122,7 @@ impl ModelWeights for Qwen3 {
 
         let h = self.norm.forward(&h)?;
         let last_hidden = h.narrow(1, l - 1, 1)?;
-        self.lm_head.forward(&last_hidden)?.squeeze(1)
+        self.output.forward(&last_hidden)?.squeeze(1)
     }
 
     fn layers_len(&self) -> usize {
