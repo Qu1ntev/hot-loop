@@ -69,14 +69,14 @@ impl FromGguf for Qwen3 {
         )?;
 
         let mut layers = Vec::with_capacity(num_layers);
-        for i in 0..num_layers {
+        for layer_idx in 0..num_layers {
             layers.push(LayerWeights::new(
                 &mut gg,
                 num_attention_heads,
                 num_kv_heads,
                 head_dim,
                 rms_norm_eps,
-                i,
+                layer_idx,
             )?);
         }
 
