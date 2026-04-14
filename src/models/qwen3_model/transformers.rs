@@ -66,20 +66,20 @@ impl AttentionWeights {
         rotary_embedding: &RotaryEmbedding,
         kv_cache: &mut ConcatKvCache
     ) -> Result<Tensor> {
-        let (b, l, _) = x.dims3()?;
+        let (b_sz, seq_len, _) = x.dims3()?;
 
         let q = self.q_proj.forward(x)?;
         let k = self.k_proj.forward(x)?;
         let v = self.v_proj.forward(x)?;
 
         let q = q
-            .reshape((b, l, self.num_heads, self.head_dim))?
+            .reshape((b_sz, seq_len, self.num_heads, self.head_dim))?
             .transpose(1, 2)?;
         let k = k
-            .reshape((b, l, self.num_kv_heads, self.head_dim))?
+            .reshape((b_sz, seq_len, self.num_kv_heads, self.head_dim))?
             .transpose(1, 2)?;
         let v = v
-            .reshape((b, l, self.num_kv_heads, self.head_dim))?
+            .reshape((b_sz, seq_len, self.num_kv_heads, self.head_dim))?
             .transpose(1, 2)?;
 
         let q_flat = q.flatten(0, 2)?;
@@ -87,8 +87,8 @@ impl AttentionWeights {
 
         let q_flat = self.attn_norm.forward(&q_flat)?;
         let k_flat = self.ffn_norm.forward(&k_flat)?;
-        let q = q_flat.reshape((b, self.num_heads, l, self.head_dim))?;
-        let k = k_flat.reshape((b, self.num_kv_heads, l, self.head_dim))?;
+        let q = q_flat.reshape((b_sz, self.num_heads, seq_len, self.head_dim))?;
+        let k = k_flat.reshape((b_sz, self.num_kv_heads, seq_len, self.head_dim))?;
 
         let (q, k) = rotary_embedding.apply(&q, &k, offset)?;
 
@@ -113,7 +113,7 @@ impl AttentionWeights {
         let ctx = probs.matmul(&v)?;
         let reshaped_ctx = ctx
             .transpose(1, 2)?
-            .reshape((b, l, ()))?;
+            .reshape((b_sz, seq_len, ()))?;
         self.attn_output.forward(&reshaped_ctx)
     }
 }
