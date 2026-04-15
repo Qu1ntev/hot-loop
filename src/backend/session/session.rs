@@ -1,4 +1,4 @@
-use candle_core::Tensor;
+use candle_core::{DType, Tensor};
 use candle_transformers::generation::{LogitsProcessor, Sampling};
 use super::Generation;
 use crate::settings::{Settings, Seed};
@@ -18,19 +18,26 @@ pub struct Session<M: Model> {
 }
 
 impl<M: Model> Session<M> {
-    pub fn new(model: M) -> Self {
+    pub fn new(model: M) -> Result<Self, Error> {
         let settings = Settings::default();
         let cached_tokens = Vec::new();
 
         let layers_len = model.layers_len();
-        let kv_cache = KvCache::new(layers_len, 2);
+        let kv_cache = KvCache::new(
+            layers_len,
+            model.head_dim(),
+            2048,
+            model.num_kv_heads(),
+            DType::F32,
+            model.device(),
+        )?;
         
-        Self {
+        Ok(Self {
             model,
             settings,
             kv_cache,
             cached_tokens,
-        }
+        })
     }
 
     pub fn generate(&mut self, history: &[Message]) -> Result<Generation<'_, M>, Error> {
@@ -53,13 +60,13 @@ impl<M: Model> Session<M> {
 
                 let satur_mask = mask.saturating_sub(1);
 
-                self.kv_cache.truncate(satur_mask)?;
+                self.kv_cache.truncate(satur_mask);
                 self.cached_tokens.truncate(satur_mask);
 
                 Phase::Decode(token)
             },
             false => {
-                self.kv_cache.truncate(mask)?;
+                self.kv_cache.truncate(mask);
                 self.cached_tokens.truncate(mask);
 
                 Phase::Prefill(new_tokens)
@@ -147,7 +154,7 @@ impl<M: Model> Session<M> {
                 return Ok(()),
 
             false => {
-                self.kv_cache.truncate(mask)?;
+                self.kv_cache.truncate(mask);
                 self.cached_tokens.truncate(mask);
 
                 let input = Tensor::new(new_tokens.as_slice(), self.model.device())?.unsqueeze(0)?;

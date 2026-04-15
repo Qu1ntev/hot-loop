@@ -16,11 +16,17 @@ pub trait ModelWeights {
 
     fn device(&self) -> &Device;
 
+    fn dtype(&self) -> DType;
+
+    fn num_kv_heads(&self) -> usize;
+
+    fn head_dim(&self) -> usize;
+
     fn chat_format(&self) -> &impl ChatTemplate;
 }
 
 pub trait Model: ModelWeights + Send + Sync {
-    fn new_session(self) -> Session<Self>
+    fn new_session(self) -> Result<Session<Self>, Error>
     where
         Self: Sized
     {
@@ -45,6 +51,18 @@ impl<M: Deref<Target: ModelWeights>> ModelWeights for M {
 
     fn device(&self) -> &Device {
         self.deref().device()
+    }
+
+    fn dtype(&self) -> DType {
+        self.deref().dtype()
+    }
+
+    fn num_kv_heads(&self) -> usize {
+        self.deref().num_kv_heads()
+    }
+
+    fn head_dim(&self) -> usize {
+        self.deref().head_dim()
     }
 
     fn chat_format(&self) -> &impl ChatTemplate {

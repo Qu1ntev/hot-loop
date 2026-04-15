@@ -4,7 +4,7 @@ use super::super::models_core::rms_norm::RmsNorm;
 use candle_core::{Result, Tensor};
 use candle_nn::{Activation, Module};
 use std::io::{Read, Seek};
-use crate::utils::kv_cache::ConcatKvCache;
+use crate::utils::kv_cache::PreallocKvCache;
 use super::super::models_core::rotary_embedding::RotaryEmbedding;
 use crate::utils::gguf::Gguf;
 use super::super::models_core::mlp::Mlp;
@@ -61,7 +61,7 @@ impl AttentionWeights {
         attn_mask: Option<&Tensor>,
         offset: usize,
         rotary_embedding: &RotaryEmbedding,
-        kv_cache: &mut ConcatKvCache
+        kv_cache: &mut PreallocKvCache
     ) -> Result<Tensor> {
         let (b, l, _) = x.dims3()?;
 
@@ -107,7 +107,8 @@ impl AttentionWeights {
             scores = scores.broadcast_add(&mask)?;
         }
         let probs = candle_nn::ops::softmax_last_dim(&scores)?;
-        let ctx = probs.matmul(&v)?; // (B, H, L, D)
+        let ctx = probs.matmul(&v)?;
+
         let reshaped_ctx = ctx
             .transpose(1, 2)?
             .reshape((b, l, self.num_heads * self.head_dim))?;
@@ -158,7 +159,7 @@ impl LayerWeights {
         mask: Option<&Tensor>,
         offset: usize,
         rotary_embedding: &RotaryEmbedding,
-        kv_cache: &mut ConcatKvCache
+        kv_cache: &mut PreallocKvCache
     ) -> Result<Tensor> {
         let h = self.ln1.forward(x)?;
         let h = self.self_attn.forward(&h, mask, offset, rotary_embedding, kv_cache)?;

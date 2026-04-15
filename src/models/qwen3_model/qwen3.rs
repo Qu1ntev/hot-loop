@@ -28,6 +28,8 @@ pub struct Qwen3 {
     dtype: DType,
     chat_format: ChatFormat,
     tokenizer: Tokenizer,
+    num_kv_heads: usize,
+    head_dim: usize,
 }
 
 impl FromGguf for Qwen3 {
@@ -98,7 +100,9 @@ impl FromGguf for Qwen3 {
             device,
             dtype,
             chat_format,
-            tokenizer
+            tokenizer,
+            num_kv_heads,
+            head_dim,
         })
     }
 }
@@ -133,6 +137,18 @@ impl ModelWeights for Qwen3 {
 
     fn device(&self) -> &Device {
         &self.device
+    }
+    
+    fn dtype(&self) -> DType {
+        self.dtype
+    }
+    
+    fn num_kv_heads(&self) -> usize {
+        self.num_kv_heads
+    }
+
+    fn head_dim(&self) -> usize {
+        self.head_dim
     }
 
     fn chat_format(&self) -> &impl ChatTemplate {
