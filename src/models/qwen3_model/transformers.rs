@@ -94,24 +94,40 @@ impl AttentionWeights {
         let k = repeat_kv(k, self.num_kv_groups)?.contiguous()?;
         let v = repeat_kv(v, self.num_kv_groups)?.contiguous()?;
 
+        let attn = self.attention(&q, &k, &v, attn_mask)?;
+
+        let reshaped_ctx = attn
+            .transpose(1, 2)?
+            .reshape((b, l, self.num_heads * self.head_dim))?;
+
+        self.o_proj.forward(&reshaped_ctx)
+    }
+
+    fn attention(
+        &self,
+        q: &Tensor,
+        k: &Tensor,
+        v: &Tensor,
+        attn_mask: Option<&Tensor>
+    ) -> Result<Tensor> {
         let scale = 1.0 / (self.head_dim as f64).sqrt();
         let mut scores = (q.matmul(&k.transpose(2, 3)?)? * scale)?;
+
         if let Some(m) = attn_mask {
             let m_dtype = m.dtype();
             let scores_dtype = scores.dtype();
+
             let mask = if m_dtype != scores_dtype {
                 m.to_dtype(scores_dtype)?
             } else {
                 m.clone()
             };
+
             scores = scores.broadcast_add(&mask)?;
         }
+
         let probs = candle_nn::ops::softmax_last_dim(&scores)?;
-        let ctx = probs.matmul(&v)?; // (B, H, L, D)
-        let reshaped_ctx = ctx
-            .transpose(1, 2)?
-            .reshape((b, l, self.num_heads * self.head_dim))?;
-        self.o_proj.forward(&reshaped_ctx)
+        probs.matmul(&v)
     }
 }
 
