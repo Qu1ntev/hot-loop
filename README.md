@@ -171,14 +171,10 @@ fn main() -> Result<(), Error> {
     let model: Qwen3 = model.clone();
     let model_ref: &Qwen3 = &model.clone();
     let model_arc: Arc<Qwen3> = Arc::new(model.clone());
-    let model_arc_dyn: Arc<dyn Model> = Arc::new(model.clone());
-    let model_box_dyn: Box<dyn Model> = Box::new(model.clone());
 
     let _session: Session<Qwen3> = model.new_session();
     let _session: Session<&Qwen3> = model_ref.new_session();
     let _session: Session<Arc<Qwen3>> = model_arc.new_session();
-    let _session: Session<Arc<dyn Model>> = model_arc_dyn.new_session();
-    let _session: Session<Box<dyn Model>> = model_box_dyn.new_session();
 
     Ok(())
 }
