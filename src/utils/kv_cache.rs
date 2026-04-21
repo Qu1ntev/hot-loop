@@ -108,17 +108,13 @@ impl PreAllocKvCache {
             );
         }
 
-        self.k_buf = self.k_buf
-            .slice_scatter(&new_k, 2, self.current_pos)?
-            .detach();
-        self.v_buf = self.v_buf
-            .slice_scatter(&new_v, 2, self.current_pos)?
-            .detach();
+        self.k_buf = self.k_buf.slice_scatter(&new_k, 2, self.current_pos)?;
+        self.v_buf = self.v_buf.slice_scatter(&new_v, 2, self.current_pos)?;
 
         self.current_pos = end_pos;
 
-        let k_active = self.k_buf.narrow(2, 0, self.current_pos)?.detach();
-        let v_active = self.v_buf.narrow(2, 0, self.current_pos)?.detach();
+        let k_active = self.k_buf.narrow(2, 0, self.current_pos)?;
+        let v_active = self.v_buf.narrow(2, 0, self.current_pos)?;
 
         Ok((k_active, v_active))
     }
