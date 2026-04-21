@@ -2,7 +2,7 @@ use std::ops::{Deref, DerefMut};
 use candle_core::{Tensor, Error, DType, Device};
 
 #[doc(hidden)]
-pub struct KvCache(Vec<PreallocKvCache>);
+pub struct KvCache(Vec<PreAllocKvCache>);
 
 impl KvCache {
     /// Create KvCache
@@ -18,7 +18,7 @@ impl KvCache {
     ) -> Result<Self, Error> {
         let mut kv_cache = Vec::with_capacity(layers_len);
         for _ in 0..layers_len {
-            kv_cache.push(PreallocKvCache::new(
+            kv_cache.push(PreAllocKvCache::new(
                 num_kv_heads,
                 head_dim,
                 max_size,
@@ -44,7 +44,7 @@ impl KvCache {
         }
 
         for cache in &mut self.0 {
-            cache.current_pos = current;
+            cache.current_pos = index;
         }
     }
 
@@ -59,7 +59,7 @@ impl KvCache {
 }
 
 impl Deref for KvCache {
-    type Target = Vec<PreallocKvCache>;
+    type Target = Vec<PreAllocKvCache>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -72,14 +72,14 @@ impl DerefMut for KvCache {
 }
 
 #[doc(hidden)]
-pub struct PreallocKvCache {
+pub struct PreAllocKvCache {
     k_buf: Tensor,
     v_buf: Tensor,
     current_pos: usize,
     max_seq_len: usize,
 }
 
-impl PreallocKvCache {
+impl PreAllocKvCache {
     pub fn new(
         num_kv_heads: usize,
         head_dim: usize,
@@ -109,10 +109,10 @@ impl PreallocKvCache {
         }
 
         self.k_buf = self.k_buf
-            .slice_scatter(&new_k.detach(), 2, self.current_pos)?
+            .slice_scatter(&new_k, 2, self.current_pos)?
             .detach();
         self.v_buf = self.v_buf
-            .slice_scatter(&new_v.detach(), 2, self.current_pos)?
+            .slice_scatter(&new_v, 2, self.current_pos)?
             .detach();
 
         self.current_pos = end_pos;
