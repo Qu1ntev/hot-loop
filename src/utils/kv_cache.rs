@@ -108,8 +108,8 @@ impl PreAllocKvCache {
             );
         }
 
-        self.k_buf = self.k_buf.slice_scatter(&new_k, 2, self.current_pos)?;
-        self.v_buf = self.v_buf.slice_scatter(&new_v, 2, self.current_pos)?;
+        self.k_buf.slice_set(&new_k.contiguous()?, 2, self.current_pos)?;
+        self.v_buf.slice_set(&new_v.contiguous()?, 2, self.current_pos)?;
 
         self.current_pos = end_pos;
 
